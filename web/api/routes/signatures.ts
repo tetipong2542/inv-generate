@@ -5,7 +5,10 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..', '..');
-const SIGNATURES_DIR = path.join(PROJECT_ROOT, 'signatures');
+
+// Use /data in production (Railway volume), local path in development
+const DATA_DIR = process.env.RAILWAY_ENVIRONMENT ? '/data' : PROJECT_ROOT;
+const SIGNATURES_DIR = path.join(DATA_DIR, 'signatures');
 
 const app = new Hono();
 

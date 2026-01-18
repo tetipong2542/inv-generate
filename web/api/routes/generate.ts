@@ -13,6 +13,11 @@ const EXAMPLES_DIR = path.join(PROJECT_ROOT, 'examples');
 // Use repository for data access (supports both JSON and SQLite)
 const USE_REPO = process.env.USE_SQLITE === 'true' || process.env.RAILWAY_ENVIRONMENT;
 
+// Use /data in production (Railway volume), local path in development  
+const DATA_DIR = process.env.RAILWAY_ENVIRONMENT ? '/data' : PROJECT_ROOT;
+const OUTPUT_DIR = path.join(DATA_DIR, 'output');
+const SIGNATURES_DIR = path.join(DATA_DIR, 'signatures');
+
 const app = new Hono();
 
 // Multi-tax calculation helper
@@ -310,8 +315,8 @@ app.post('/', async (c) => {
 
     // If a signature path is provided, merge it with freelancer config
     if (signaturePath) {
-      // Resolve the signature path relative to PROJECT_ROOT
-      const fullSignaturePath = path.join(PROJECT_ROOT, 'signatures', signaturePath);
+      // Resolve the signature path relative to SIGNATURES_DIR (persistent volume in production)
+      const fullSignaturePath = path.join(SIGNATURES_DIR, signaturePath);
       const signatureFile = Bun.file(fullSignaturePath);
       if (await signatureFile.exists()) {
         freelancerConfig.signature = fullSignaturePath;
@@ -414,10 +419,10 @@ app.post('/', async (c) => {
       }, 400);
     }
 
-    // Generate PDF
-    const outputDir = path.join(PROJECT_ROOT, 'output');
+    // Generate PDF - ensure output directory exists
+    await mkdir(OUTPUT_DIR, { recursive: true });
     const outputFilename = `${type}-${finalDocumentData.documentNumber}.pdf`;
-    const outputPath = path.join(outputDir, outputFilename);
+    const outputPath = path.join(OUTPUT_DIR, outputFilename);
 
     await generatePDF(type, finalDocumentData, customer, freelancerConfig, outputPath);
 

@@ -3,6 +3,7 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { serveStatic } from 'hono/bun';
 import path from 'path';
+import { mkdir } from 'fs/promises';
 import customers from './routes/customers';
 import documents from './routes/documents';
 import generate from './routes/generate';
@@ -18,6 +19,13 @@ const app = new Hono();
 // Detect if running in production (Railway sets NODE_ENV or PORT)
 const isProduction = process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT;
 
+// Use /data in production (Railway volume), local path in development  
+const DATA_DIR = process.env.RAILWAY_ENVIRONMENT ? '/data' : process.cwd();
+const OUTPUT_DIR = path.join(DATA_DIR, 'output');
+
+// Ensure output directory exists
+mkdir(OUTPUT_DIR, { recursive: true }).catch(console.error);
+
 // Middleware
 app.use('*', logger());
 app.use('*', cors({
@@ -31,7 +39,7 @@ app.use('*', cors({
 // Static file serving for generated PDFs
 app.get('/output/:filename', async (c) => {
   const filename = c.req.param('filename');
-  const filePath = path.join(process.cwd(), 'output', filename);
+  const filePath = path.join(OUTPUT_DIR, filename);
   const file = Bun.file(filePath);
   
   if (!(await file.exists())) {
@@ -59,16 +67,16 @@ app.get('/output/:filename', async (c) => {
 
 // List generated files
 app.get('/api/output', async (c) => {
-  const outputDir = path.join(process.cwd(), 'output');
   const { readdir, stat } = await import('fs/promises');
   
   try {
-    const files = await readdir(outputDir);
+    await mkdir(OUTPUT_DIR, { recursive: true });
+    const files = await readdir(OUTPUT_DIR);
     const fileInfos = await Promise.all(
       files
         .filter(f => f.endsWith('.pdf'))
         .map(async (f) => {
-          const filePath = path.join(outputDir, f);
+          const filePath = path.join(OUTPUT_DIR, f);
           const stats = await stat(filePath);
           return {
             filename: f,
