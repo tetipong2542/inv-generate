@@ -1,0 +1,105 @@
+# Dependencies
+node_modules/
+bun.lockb
+
+# Build output
+out/
+dist/
+*.tgz
+
+# Code coverage
+coverage/
+*.lcov
+
+# Logs
+logs/
+*.log
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Environment variables
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
+# Caches
+.eslintcache
+.cache/
+*.tsbuildinfo
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# ==========================================
+# PROJECT-SPECIFIC: Invoice Generator
+# ==========================================
+
+# Generated PDF files (outputs, not source code)
+output/*.pdf
+
+# Personal configuration (contains bank info, personal details)
+config/freelancer.json
+
+# AI settings (contains API keys)
+config/ai-settings.json
+
+# User invoice data (may contain sensitive client information)
+data/
+
+# Document metadata (tracks document counters and generation history)
+.metadata.json
+
+# Keep directory structure
+!output/.gitkeep
+
+# Temporary/backup files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# ==========================================
+# WEB APP SPECIFIC
+# ==========================================
+
+# Web app dependencies (separate node_modules)
+web/app/node_modules/
+web/api/node_modules/
+
+# Web app database (user data)
+web/api/data/
+
+# Example documents (user generated)
+examples/*.json
+
+# Customer data (sensitive)
+customers/*.json
+!customers/acme-corp.json
+
+# Yoke AI memory (optional - contains session memory)
+.yoke/
+
+# Freelancer configs with personal info
+config/freelancers/*.json
+!config/freelancers/example.json
+
+# Saved services (user data)
+config/services/*.json
+
+# User signatures
+signatures/*.png
+
+# API settings with keys
+web/api/config/*.json
