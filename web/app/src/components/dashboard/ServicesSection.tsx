@@ -92,7 +92,16 @@ export function ServicesSection() {
 
   const openEdit = (item: ServicePackage) => {
     setEditingItem(item);
-    setFormData(item);
+    // Ensure items array exists and has valid data
+    const safeItems = (item.items && Array.isArray(item.items) && item.items.length > 0)
+      ? item.items.map(i => ({
+          description: i?.description ?? '',
+          quantity: i?.quantity ?? 1,
+          unit: i?.unit ?? 'รายการ',
+          unitPrice: i?.unitPrice ?? 0,
+        }))
+      : [{ ...emptyItem }];
+    setFormData({ ...item, items: safeItems });
     setIsModalOpen(true);
   };
 
@@ -120,19 +129,19 @@ export function ServicesSection() {
   const addItemRow = () => {
     setFormData({
       ...formData,
-      items: [...formData.items, { ...emptyItem }],
+      items: [...(formData.items || []), { ...emptyItem }],
     });
   };
 
   const removeItemRow = (index: number) => {
     setFormData({
       ...formData,
-      items: formData.items.filter((_, i) => i !== index),
+      items: (formData.items || []).filter((_, i) => i !== index),
     });
   };
 
   const updateItemRow = (index: number, field: keyof LineItem, value: string | number) => {
-    const newItems = [...formData.items];
+    const newItems = [...(formData.items || [])];
     newItems[index] = { ...newItems[index], [field]: value };
     setFormData({ ...formData, items: newItems });
   };
@@ -424,7 +433,7 @@ export function ServicesSection() {
               </div>
               
               <div className="space-y-2">
-                {formData.items.map((item, index) => (
+                {(formData.items || []).map((item, index) => (
                   <div key={index} className="flex gap-2 items-start">
                     <div className="flex-1">
                       <Input
@@ -456,7 +465,7 @@ export function ServicesSection() {
                         onChange={(e) => updateItemRow(index, 'unitPrice', Number(e.target.value))}
                       />
                     </div>
-                    {formData.type === 'package' && formData.items.length > 1 && (
+                    {formData.type === 'package' && (formData.items || []).length > 1 && (
                       <Button
                         size="icon"
                         variant="ghost"
@@ -473,7 +482,7 @@ export function ServicesSection() {
               <div className="mt-4 text-right">
                 <span className="text-sm text-gray-600">รวมทั้งหมด: </span>
                 <span className="font-bold text-lg">
-                  {formatNumber(calculateTotal(formData.items))} บาท
+                  {formatNumber(calculateTotal(formData.items || []))} บาท
                 </span>
               </div>
             </div>
@@ -485,7 +494,7 @@ export function ServicesSection() {
             </Button>
             <Button
               onClick={handleSave}
-              disabled={!formData.name || formData.items.length === 0}
+              disabled={!formData.name || (formData.items || []).length === 0}
             >
               บันทึก
             </Button>
