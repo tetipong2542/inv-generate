@@ -1,15 +1,25 @@
 import { Hono } from 'hono';
 import { readdir, mkdir, unlink } from 'fs/promises';
 import path from 'path';
+import { documentsRepo } from '../db/repository';
 
 const app = new Hono();
 
 const EXAMPLES_DIR = path.join(process.cwd(), 'examples');
 const OUTPUT_DIR = path.join(process.cwd(), 'output');
 
+// Use repository for data access (supports both JSON and SQLite)
+const USE_REPO = process.env.USE_SQLITE === 'true' || process.env.RAILWAY_ENVIRONMENT;
+
 // GET /api/documents - รายการเอกสารทั้งหมด
 app.get('/', async (c) => {
   try {
+    if (USE_REPO) {
+      const documents = await documentsRepo.getAll();
+      return c.json({ success: true, data: documents });
+    }
+    
+    // Legacy JSON file handling
     const files = await readdir(EXAMPLES_DIR);
     const documents = [];
 
@@ -46,6 +56,15 @@ app.get('/', async (c) => {
 // GET /api/documents/:id - ดึงข้อมูลเอกสาร
 app.get('/:id', async (c) => {
   const id = c.req.param('id');
+  
+  if (USE_REPO) {
+    const doc = await documentsRepo.getById(id);
+    if (!doc) {
+      return c.json({ success: false, error: 'ไม่พบเอกสาร' }, 404);
+    }
+    return c.json({ success: true, data: doc });
+  }
+  
   const filePath = path.join(EXAMPLES_DIR, `${id}.json`);
 
   try {

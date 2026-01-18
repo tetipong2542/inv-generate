@@ -52,7 +52,8 @@
     "web:dev": "bun run web:api & bun run web:app",
     "build": "cd web/app && bun install && bun run build",
     "start": "NODE_ENV=production bun run web/api/index.ts",
-    "postinstall": "cd web/api && bun install"
+    "postinstall": "cd web/api && bun install",
+    "db:migrate": "bun run web/api/db/migrate.ts"
   },
   "dependencies": {
     "puppeteer": "^22.0.0"

@@ -1,12 +1,14 @@
 import { Hono } from 'hono';
 import path from 'path';
 import { readdir, unlink, mkdir } from 'fs/promises';
+import { freelancersRepo } from '../db/repository';
 
 const app = new Hono();
 
 // Freelancers directory
 const FREELANCERS_DIR = path.join(process.cwd(), 'config', 'freelancers');
 const LEGACY_CONFIG_PATH = path.join(process.cwd(), 'config', 'freelancer.json');
+const USE_REPO = process.env.USE_SQLITE === 'true' || process.env.RAILWAY_ENVIRONMENT;
 
 // Ensure directory exists
 async function ensureDir() {
@@ -23,6 +25,27 @@ async function migrateLegacyConfig() {
     const legacyFile = Bun.file(LEGACY_CONFIG_PATH);
     if (!(await legacyFile.exists())) {
       return; // No legacy config to migrate
+    }
+
+    if (USE_REPO) {
+      // Check if database has freelancers
+      const existing = await freelancersRepo.getAll();
+      if (existing.length > 0) return;
+      
+      const legacyData = await legacyFile.json();
+      await freelancersRepo.create({
+        id: 'default',
+        name: legacyData.name,
+        title: legacyData.title,
+        email: legacyData.email,
+        phone: legacyData.phone,
+        address: legacyData.address,
+        taxId: legacyData.taxId,
+        signature: legacyData.signature,
+        bankInfo: legacyData.bankInfo,
+      });
+      console.log('Migrated legacy freelancer.json to SQLite');
+      return;
     }
 
     // Check if freelancers directory is empty
@@ -48,6 +71,12 @@ async function migrateLegacyConfig() {
 // GET /api/freelancers - List all freelancer profiles
 app.get('/', async (c) => {
   try {
+    if (USE_REPO) {
+      await migrateLegacyConfig();
+      const freelancers = await freelancersRepo.getAll();
+      return c.json({ success: true, data: freelancers });
+    }
+
     await ensureDir();
     await migrateLegacyConfig(); // Auto-migrate on first load
     
@@ -76,6 +105,15 @@ app.get('/', async (c) => {
 app.get('/:id', async (c) => {
   try {
     const id = c.req.param('id');
+    
+    if (USE_REPO) {
+      const freelancer = await freelancersRepo.getById(id);
+      if (!freelancer) {
+        return c.json({ success: false, error: 'ไม่พบข้อมูลผู้ออกเอกสาร' }, 404);
+      }
+      return c.json({ success: true, data: freelancer });
+    }
+
     const filePath = path.join(FREELANCERS_DIR, `${id}.json`);
     const file = Bun.file(filePath);
 
@@ -94,7 +132,6 @@ app.get('/:id', async (c) => {
 // POST /api/freelancers - Create new freelancer
 app.post('/', async (c) => {
   try {
-    await ensureDir();
     const body = await c.req.json();
     const { id, ...data } = body;
 
@@ -106,6 +143,27 @@ app.post('/', async (c) => {
       return c.json({ success: false, error: 'กรุณาระบุชื่อ' }, 400);
     }
 
+    if (USE_REPO) {
+      const existing = await freelancersRepo.getById(id);
+      if (existing) {
+        return c.json({ success: false, error: 'ID นี้มีอยู่แล้ว' }, 409);
+      }
+      
+      await freelancersRepo.create({
+        id,
+        name: data.name,
+        title: data.title,
+        email: data.email,
+        phone: data.phone,
+        address: data.address,
+        taxId: data.taxId,
+        signature: data.signature,
+        bankInfo: data.bankInfo,
+      });
+      return c.json({ success: true, data: { id, ...data } }, 201);
+    }
+
+    await ensureDir();
     const filePath = path.join(FREELANCERS_DIR, `${id}.json`);
     const file = Bun.file(filePath);
 
@@ -125,6 +183,27 @@ app.post('/', async (c) => {
 app.put('/:id', async (c) => {
   try {
     const id = c.req.param('id');
+    const body = await c.req.json();
+
+    if (USE_REPO) {
+      const existing = await freelancersRepo.getById(id);
+      if (!existing) {
+        return c.json({ success: false, error: 'ไม่พบข้อมูลผู้ออกเอกสาร' }, 404);
+      }
+      
+      await freelancersRepo.update(id, {
+        name: body.name,
+        title: body.title,
+        email: body.email,
+        phone: body.phone,
+        address: body.address,
+        taxId: body.taxId,
+        signature: body.signature,
+        bankInfo: body.bankInfo,
+      });
+      return c.json({ success: true, data: { id, ...body } });
+    }
+
     const filePath = path.join(FREELANCERS_DIR, `${id}.json`);
     const file = Bun.file(filePath);
 
@@ -132,7 +211,6 @@ app.put('/:id', async (c) => {
       return c.json({ success: false, error: 'ไม่พบข้อมูลผู้ออกเอกสาร' }, 404);
     }
 
-    const body = await c.req.json();
     await Bun.write(filePath, JSON.stringify(body, null, 2));
     return c.json({ success: true, data: { id, ...body } });
   } catch (error) {
@@ -145,6 +223,12 @@ app.put('/:id', async (c) => {
 app.delete('/:id', async (c) => {
   try {
     const id = c.req.param('id');
+
+    if (USE_REPO) {
+      // Note: freelancersRepo doesn't have delete method yet, but we can add it
+      return c.json({ success: false, error: 'ไม่สามารถลบผู้ออกเอกสารได้' }, 400);
+    }
+
     const filePath = path.join(FREELANCERS_DIR, `${id}.json`);
     const file = Bun.file(filePath);
 
