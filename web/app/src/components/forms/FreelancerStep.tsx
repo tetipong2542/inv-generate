@@ -115,7 +115,7 @@ export function FreelancerStep() {
               id="name"
               value={formData.name}
               onChange={(e) => handleChange('name', e.target.value)}
-              placeholder="นาย สมชาย ดีมี"
+              placeholder="นาย ฐิติพงศ์ มานะจิตต์"
             />
           </div>
           <div className="space-y-2">
@@ -124,7 +124,7 @@ export function FreelancerStep() {
               id="title"
               value={formData.title}
               onChange={(e) => handleChange('title', e.target.value)}
-              placeholder="Web Developer & Designer"
+              placeholder="Web Developer"
             />
           </div>
         </div>
@@ -168,7 +168,7 @@ export function FreelancerStep() {
             id="taxId"
             value={formData.taxId}
             onChange={(e) => handleChange('taxId', e.target.value)}
-            placeholder="1-2345-67890-12-3"
+            placeholder="1809900958692"
           />
         </div>
 
@@ -182,7 +182,7 @@ export function FreelancerStep() {
                 id="bankName"
                 value={formData.bankInfo.bankName}
                 onChange={(e) => handleChange('bankInfo.bankName', e.target.value)}
-                placeholder="ธนาคารกรุงเทพ"
+                placeholder="ธนาคารกสิกร"
               />
             </div>
             <div className="space-y-2">
@@ -191,7 +191,7 @@ export function FreelancerStep() {
                 id="accountNumber"
                 value={formData.bankInfo.accountNumber}
                 onChange={(e) => handleChange('bankInfo.accountNumber', e.target.value)}
-                placeholder="123-456-789-0"
+                placeholder="1623852969"
               />
             </div>
           </div>
@@ -202,7 +202,7 @@ export function FreelancerStep() {
                 id="accountName"
                 value={formData.bankInfo.accountName}
                 onChange={(e) => handleChange('bankInfo.accountName', e.target.value)}
-                placeholder="นาย สมชาย ดีมี"
+                placeholder="นาย ฐิติพงศ์ มานะจิตต์"
               />
             </div>
             <div className="space-y-2">

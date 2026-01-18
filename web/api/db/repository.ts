@@ -381,13 +381,25 @@ export const freelancersRepo = {
 // Services Repository
 // ============================================
 
-export interface Service {
-  id: string;
-  name: string;
-  description?: string;
+export interface ServiceItem {
+  description: string;
+  quantity: number;
   unit: string;
   unitPrice: number;
+}
+
+export interface Service {
+  id: string;
+  type?: 'item' | 'package';
+  name: string;
+  description?: string;
+  unit?: string;
+  unitPrice?: number;
+  items?: ServiceItem[];
   category?: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export const servicesRepo = {
@@ -420,14 +432,41 @@ export const servicesRepo = {
     }
   },
 
+  async getById(id: string): Promise<Service | null> {
+    if (USE_SQLITE) {
+      const row = await db.getServiceById(id);
+      if (!row) return null;
+      return {
+        id: row.id,
+        name: row.name,
+        description: row.description || undefined,
+        unit: row.unit,
+        unitPrice: row.unit_price,
+        category: row.category || undefined,
+      };
+    }
+    
+    try {
+      const filePath = path.join(SERVICES_DIR, `${id}.json`);
+      const file = Bun.file(filePath);
+      if (await file.exists()) {
+        const data = await file.json();
+        return { id, ...data };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  },
+
   async create(service: Service): Promise<void> {
     if (USE_SQLITE) {
       await db.createService({
         id: service.id,
         name: service.name,
         description: service.description,
-        unit: service.unit,
-        unit_price: service.unitPrice,
+        unit: service.unit || '',
+        unit_price: service.unitPrice || 0,
         category: service.category,
       });
       return;
@@ -436,6 +475,26 @@ export const servicesRepo = {
     await mkdir(SERVICES_DIR, { recursive: true });
     const filePath = path.join(SERVICES_DIR, `${service.id}.json`);
     await Bun.write(filePath, JSON.stringify(service, null, 2));
+  },
+
+  async update(id: string, updates: Partial<Service>): Promise<void> {
+    if (USE_SQLITE) {
+      await db.updateService(id, {
+        name: updates.name,
+        description: updates.description,
+        unit: updates.unit,
+        unit_price: updates.unitPrice,
+        category: updates.category,
+      });
+      return;
+    }
+    
+    const filePath = path.join(SERVICES_DIR, `${id}.json`);
+    const file = Bun.file(filePath);
+    if (await file.exists()) {
+      const data = await file.json();
+      await Bun.write(filePath, JSON.stringify({ ...data, ...updates }, null, 2));
+    }
   },
 
   async delete(id: string): Promise<boolean> {

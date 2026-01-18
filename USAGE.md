@@ -229,7 +229,7 @@ cp config/freelancer.example.json config/freelancer.json
   "email": "somchai@example.com",
   "phone": "081-234-5678",
   "address": "123 ถนนสุขุมวิท กรุงเทพมหานคร 10110",
-  "taxId": "1-2345-67890-12-3",
+  "taxId": "1809900958692",
   "bankInfo": {
     "bankName": "ธนาคารกสิกรไทย",
     "accountName": "นายสมชาย ใจดี",

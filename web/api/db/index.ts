@@ -392,6 +392,33 @@ export async function deleteService(id: string): Promise<boolean> {
   return result.changes > 0;
 }
 
+export async function getServiceById(id: string): Promise<ServiceRow | null> {
+  const db = await getDatabase();
+  return db.query('SELECT * FROM services WHERE id = ?').get(id) as ServiceRow | null;
+}
+
+export async function updateService(id: string, service: Partial<{
+  name: string;
+  description: string;
+  unit: string;
+  unit_price: number;
+  category: string;
+  data: string;
+}>): Promise<void> {
+  const db = await getDatabase();
+  const sets: string[] = ['updated_at = CURRENT_TIMESTAMP'];
+  const values: any[] = [];
+
+  if (service.name !== undefined) { sets.push('name = ?'); values.push(service.name); }
+  if (service.description !== undefined) { sets.push('description = ?'); values.push(service.description); }
+  if (service.unit !== undefined) { sets.push('unit = ?'); values.push(service.unit); }
+  if (service.unit_price !== undefined) { sets.push('unit_price = ?'); values.push(service.unit_price); }
+  if (service.category !== undefined) { sets.push('category = ?'); values.push(service.category); }
+
+  values.push(id);
+  db.query(`UPDATE services SET ${sets.join(', ')} WHERE id = ?`).run(...values);
+}
+
 // Metadata operations
 export async function getMetadata(key: string): Promise<string | null> {
   const db = await getDatabase();

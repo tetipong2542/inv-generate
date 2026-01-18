@@ -1,8 +1,12 @@
 import { Hono } from 'hono';
 import path from 'path';
 import { readdir, mkdir } from 'fs/promises';
+import { customersRepo, documentsRepo } from '../db/repository';
 
 const app = new Hono();
+
+// Use repository for data access (supports both JSON and SQLite)
+const USE_REPO = process.env.USE_SQLITE === 'true' || process.env.RAILWAY_ENVIRONMENT;
 
 // Session storage for multi-step customer creation
 const sessions: Map<string, { step: string; data: any }> = new Map();
@@ -597,9 +601,6 @@ async function processCustomerData(message: string, existingData: any) {
 // Create customer directly with complete data
 async function createCustomerDirectly(data: any): Promise<{ success: boolean; response: string; customerId?: string }> {
   try {
-    const customersDir = path.join(process.cwd(), 'customers');
-    await mkdir(customersDir, { recursive: true });
-
     // Generate ID from company or name
     const baseName = data.company || data.name || '';
     const id = baseName
@@ -611,6 +612,38 @@ async function createCustomerDirectly(data: any): Promise<{ success: boolean; re
       .replace(/^-|-$/g, '')
       .slice(0, 30) || `customer-${Date.now()}`;
 
+    const customerData = {
+      id,
+      name: data.name || data.company,
+      company: data.company || '',
+      address: data.address,
+      taxId: data.taxId,
+      phone: data.phone || ''
+    };
+
+    if (USE_REPO) {
+      // Check if exists
+      const existing = await customersRepo.getById(id);
+      if (existing) {
+        return {
+          success: false,
+          response: `ลูกค้า ID "${id}" มีอยู่แล้วในระบบ`
+        };
+      }
+
+      await customersRepo.create(customerData);
+
+      return {
+        success: true,
+        response: `สร้างลูกค้าสำเร็จ!\n\n**${customerData.name}**${customerData.company && customerData.company !== customerData.name ? ` (${customerData.company})` : ''}\nID: \`${id}\`\nที่อยู่: ${customerData.address}\nTax ID: ${customerData.taxId}${customerData.phone ? `\nเบอร์: ${customerData.phone}` : ''}\n\n✅ ลูกค้าพร้อมใช้งานแล้ว`,
+        customerId: id
+      };
+    }
+
+    // Legacy filesystem mode
+    const customersDir = path.join(process.cwd(), 'customers');
+    await mkdir(customersDir, { recursive: true });
+
     const filePath = path.join(customersDir, `${id}.json`);
     const file = Bun.file(filePath);
     
@@ -620,14 +653,6 @@ async function createCustomerDirectly(data: any): Promise<{ success: boolean; re
         response: `ลูกค้า ID "${id}" มีอยู่แล้วในระบบ`
       };
     }
-
-    const customerData = {
-      name: data.name || data.company,
-      company: data.company || '',
-      address: data.address,
-      taxId: data.taxId,
-      phone: data.phone || ''
-    };
 
     await Bun.write(filePath, JSON.stringify(customerData, null, 2));
 
@@ -646,9 +671,24 @@ async function createCustomerDirectly(data: any): Promise<{ success: boolean; re
 
 // List all customers
 async function listCustomers(): Promise<string> {
-  const customersDir = path.join(process.cwd(), 'customers');
-  
   try {
+    if (USE_REPO) {
+      const customers = await customersRepo.getAll();
+      
+      if (customers.length === 0) {
+        return 'ยังไม่มีลูกค้าในระบบ\n\nสร้างลูกค้าใหม่โดยพิมพ์ข้อมูลบริษัท เช่น:\n"สร้างลูกค้า บริษัท ABC จำกัด เลขที่ 123 ถ.สุขุมวิท กรุงเทพ 10110 เลขภาษี 1234567890123"';
+      }
+
+      let response = `พบลูกค้า ${customers.length} ราย:\n\n`;
+      customers.forEach((c, i) => {
+        response += `${i + 1}. **${c.name}**${c.company && c.company !== c.name ? ` (${c.company})` : ''}\n   ID: \`${c.id}\`\n`;
+      });
+
+      return response;
+    }
+
+    // Legacy filesystem mode
+    const customersDir = path.join(process.cwd(), 'customers');
     const files = await readdir(customersDir);
     const customers = [];
 
@@ -681,9 +721,31 @@ async function listCustomers(): Promise<string> {
 
 // List all documents
 async function listDocuments(): Promise<string> {
-  const examplesDir = path.join(process.cwd(), 'examples');
-  
   try {
+    if (USE_REPO) {
+      const documents = await documentsRepo.getAll();
+      
+      if (documents.length === 0) {
+        return 'ยังไม่มีเอกสารในระบบ';
+      }
+
+      const typeNames: Record<string, string> = {
+        invoice: 'ใบแจ้งหนี้',
+        quotation: 'ใบเสนอราคา',
+        receipt: 'ใบเสร็จ',
+      };
+
+      let response = `พบเอกสาร ${documents.length} รายการ:\n\n`;
+      documents.forEach((d, i) => {
+        const typeName = typeNames[d.type] || 'ไม่ทราบ';
+        response += `${i + 1}. **${typeName}** - ${d.documentNumber || 'auto'}\n   ID: \`${d.id}\`\n`;
+      });
+
+      return response;
+    }
+
+    // Legacy filesystem mode
+    const examplesDir = path.join(process.cwd(), 'examples');
     const files = await readdir(examplesDir);
     const documents = [];
 
@@ -737,17 +799,35 @@ async function deleteCustomer(id: string | null): Promise<string> {
     return 'กรุณาระบุ ID ของลูกค้า เช่น "ลบลูกค้า acme-corp"';
   }
 
-  const filePath = path.join(process.cwd(), 'customers', `${id}.json`);
-  const file = Bun.file(filePath);
+  try {
+    if (USE_REPO) {
+      const existing = await customersRepo.getById(id);
+      if (!existing) {
+        return `ไม่พบลูกค้า ID: ${id}`;
+      }
 
-  if (!(await file.exists())) {
-    return `ไม่พบลูกค้า ID: ${id}`;
+      const deleted = await customersRepo.delete(id);
+      if (deleted) {
+        return `ลบลูกค้า "${id}" เรียบร้อยแล้ว`;
+      }
+      return `ไม่สามารถลบลูกค้า "${id}" ได้`;
+    }
+
+    // Legacy filesystem mode
+    const filePath = path.join(process.cwd(), 'customers', `${id}.json`);
+    const file = Bun.file(filePath);
+
+    if (!(await file.exists())) {
+      return `ไม่พบลูกค้า ID: ${id}`;
+    }
+
+    const fs = await import('fs/promises');
+    await fs.unlink(filePath);
+
+    return `ลบลูกค้า "${id}" เรียบร้อยแล้ว`;
+  } catch (error) {
+    return `เกิดข้อผิดพลาด: ${error instanceof Error ? error.message : 'Unknown'}`;
   }
-
-  const fs = await import('fs/promises');
-  await fs.unlink(filePath);
-
-  return `ลบลูกค้า "${id}" เรียบร้อยแล้ว`;
 }
 
 // Delete document
@@ -756,17 +836,35 @@ async function deleteDocument(id: string | null): Promise<string> {
     return 'กรุณาระบุ ID ของเอกสาร เช่น "ลบเอกสาร invoice-001"';
   }
 
-  const filePath = path.join(process.cwd(), 'examples', `${id}.json`);
-  const file = Bun.file(filePath);
+  try {
+    if (USE_REPO) {
+      const existing = await documentsRepo.getById(id);
+      if (!existing) {
+        return `ไม่พบเอกสาร ID: ${id}`;
+      }
 
-  if (!(await file.exists())) {
-    return `ไม่พบเอกสาร ID: ${id}`;
+      const deleted = await documentsRepo.delete(id);
+      if (deleted) {
+        return `ลบเอกสาร "${id}" เรียบร้อยแล้ว`;
+      }
+      return `ไม่สามารถลบเอกสาร "${id}" ได้`;
+    }
+
+    // Legacy filesystem mode
+    const filePath = path.join(process.cwd(), 'examples', `${id}.json`);
+    const file = Bun.file(filePath);
+
+    if (!(await file.exists())) {
+      return `ไม่พบเอกสาร ID: ${id}`;
+    }
+
+    const fs = await import('fs/promises');
+    await fs.unlink(filePath);
+
+    return `ลบเอกสาร "${id}" เรียบร้อยแล้ว`;
+  } catch (error) {
+    return `เกิดข้อผิดพลาด: ${error instanceof Error ? error.message : 'Unknown'}`;
   }
-
-  const fs = await import('fs/promises');
-  await fs.unlink(filePath);
-
-  return `ลบเอกสาร "${id}" เรียบร้อยแล้ว`;
 }
 
 // Help message

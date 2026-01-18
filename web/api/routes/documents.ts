@@ -97,7 +97,27 @@ app.post('/', async (c) => {
       }, 400);
     }
 
-    // Ensure examples directory exists
+    if (USE_REPO) {
+      // Check if exists
+      const existing = await documentsRepo.getById(id);
+      if (existing) {
+        return c.json({ success: false, error: 'มีเอกสารรหัสนี้อยู่แล้ว' }, 409);
+      }
+
+      await documentsRepo.create({
+        id,
+        type,
+        documentNumber: documentData.documentNumber || id,
+        issueDate: documentData.issueDate || new Date().toISOString().split('T')[0],
+        customerId: documentData.customerId,
+        status: documentData.status || 'pending',
+        ...documentData,
+      });
+
+      return c.json({ success: true, data: { id, type, ...documentData } }, 201);
+    }
+
+    // Legacy filesystem mode
     await mkdir(EXAMPLES_DIR, { recursive: true });
 
     const filePath = path.join(EXAMPLES_DIR, `${id}.json`);
@@ -118,16 +138,28 @@ app.post('/', async (c) => {
 // PUT /api/documents/:id - แก้ไขเอกสาร
 app.put('/:id', async (c) => {
   const id = c.req.param('id');
-  const filePath = path.join(EXAMPLES_DIR, `${id}.json`);
 
   try {
+    const body = await c.req.json();
+    const { type, ...documentData } = body;
+
+    if (USE_REPO) {
+      const existing = await documentsRepo.getById(id);
+      if (!existing) {
+        return c.json({ success: false, error: 'ไม่พบเอกสาร' }, 404);
+      }
+
+      await documentsRepo.update(id, { ...documentData });
+
+      return c.json({ success: true, data: { id, type, ...documentData } });
+    }
+
+    // Legacy filesystem mode
+    const filePath = path.join(EXAMPLES_DIR, `${id}.json`);
     const file = Bun.file(filePath);
     if (!(await file.exists())) {
       return c.json({ success: false, error: 'ไม่พบเอกสาร' }, 404);
     }
-
-    const body = await c.req.json();
-    const { type, ...documentData } = body;
 
     await Bun.write(filePath, JSON.stringify(documentData, null, 2));
 
@@ -140,14 +172,8 @@ app.put('/:id', async (c) => {
 // PATCH /api/documents/:id/status - อัพเดทสถานะเอกสาร
 app.patch('/:id/status', async (c) => {
   const id = c.req.param('id');
-  const filePath = path.join(EXAMPLES_DIR, `${id}.json`);
 
   try {
-    const file = Bun.file(filePath);
-    if (!(await file.exists())) {
-      return c.json({ success: false, error: 'ไม่พบเอกสาร' }, 404);
-    }
-
     const body = await c.req.json();
     const { status } = body;
 
@@ -157,6 +183,27 @@ app.patch('/:id/status', async (c) => {
         success: false, 
         error: `สถานะไม่ถูกต้อง (${validStatuses.join(', ')})` 
       }, 400);
+    }
+
+    if (USE_REPO) {
+      const existing = await documentsRepo.getById(id);
+      if (!existing) {
+        return c.json({ success: false, error: 'ไม่พบเอกสาร' }, 404);
+      }
+
+      await documentsRepo.update(id, { 
+        status, 
+        statusUpdatedAt: new Date().toISOString() 
+      });
+
+      return c.json({ success: true, data: { id, ...existing, status } });
+    }
+
+    // Legacy filesystem mode
+    const filePath = path.join(EXAMPLES_DIR, `${id}.json`);
+    const file = Bun.file(filePath);
+    if (!(await file.exists())) {
+      return c.json({ success: false, error: 'ไม่พบเอกสาร' }, 404);
     }
 
     const existingData = await file.json();
@@ -339,14 +386,8 @@ app.delete('/:id', async (c) => {
 // INV -> REC: ต้องสถานะ "paid" ก่อน
 app.post('/:id/create-linked', async (c) => {
   const sourceId = c.req.param('id');
-  const sourceFilePath = path.join(EXAMPLES_DIR, `${sourceId}.json`);
 
   try {
-    const sourceFile = Bun.file(sourceFilePath);
-    if (!(await sourceFile.exists())) {
-      return c.json({ success: false, error: 'ไม่พบเอกสารต้นทาง' }, 404);
-    }
-
     const body = await c.req.json();
     const { targetType } = body; // 'invoice' | 'receipt'
 
@@ -357,130 +398,145 @@ app.post('/:id/create-linked', async (c) => {
       }, 400);
     }
 
-    const sourceDoc = await sourceFile.json();
-    const sourceType = sourceDoc.type || 
-      (sourceDoc.validUntil ? 'quotation' : sourceDoc.dueDate ? 'invoice' : 'unknown');
+    // Helper function to process create-linked logic
+    const processCreateLinked = async (
+      sourceDoc: any,
+      updateSourceDoc: (updates: any) => Promise<void>
+    ) => {
+      const sourceType = sourceDoc.type || 
+        (sourceDoc.validUntil ? 'quotation' : sourceDoc.dueDate ? 'invoice' : 'unknown');
 
-    // Validate workflow rules
-    if (targetType === 'invoice') {
-      // QT -> INV: allowed without restriction
-      if (sourceType !== 'quotation') {
-        return c.json({ 
-          success: false, 
-          error: 'สามารถสร้างใบแจ้งหนี้ได้จากใบเสนอราคาเท่านั้น' 
-        }, 400);
-      }
-    } else if (targetType === 'receipt') {
-      // INV -> REC: must be "paid" status
-      if (sourceType !== 'invoice') {
-        return c.json({ 
-          success: false, 
-          error: 'สามารถสร้างใบเสร็จได้จากใบแจ้งหนี้เท่านั้น' 
-        }, 400);
-      }
-      if (sourceDoc.status !== 'paid') {
-        return c.json({ 
-          success: false, 
-          error: 'ใบแจ้งหนี้ต้องมีสถานะ "ชำระแล้ว" ก่อนสร้างใบเสร็จ' 
-        }, 400);
-      }
-    }
-
-    // Check if linked document already exists (ignore 'pending' as it was never completed)
-    // Also allow recreation if the linked document was deleted
-    const existingInvoiceId = sourceDoc.linkedDocuments?.invoiceId;
-    const existingReceiptId = sourceDoc.linkedDocuments?.receiptId;
-    const deletedInvoice = sourceDoc.deletedLinkedDocuments?.invoice;
-    const deletedReceipt = sourceDoc.deletedLinkedDocuments?.receipt;
-    
-    if (targetType === 'invoice' && existingInvoiceId && existingInvoiceId !== 'pending') {
-      return c.json({ 
-        success: false, 
-        error: `มีใบแจ้งหนี้ที่สร้างจากใบเสนอราคานี้แล้ว: ${existingInvoiceId}` 
-      }, 400);
-    }
-    if (targetType === 'receipt' && existingReceiptId && existingReceiptId !== 'pending') {
-      return c.json({ 
-        success: false, 
-        error: `มีใบเสร็จที่สร้างจากใบแจ้งหนี้นี้แล้ว: ${existingReceiptId}` 
-      }, 400);
-    }
-    
-    // Clean up any stale 'pending' state from aborted attempts
-    // Also clean up deleted document tracking when recreating
-    if ((targetType === 'invoice' && (existingInvoiceId === 'pending' || deletedInvoice)) ||
-        (targetType === 'receipt' && (existingReceiptId === 'pending' || deletedReceipt))) {
-      // Reset the pending/deleted state so we can try again
-      sourceDoc.linkedDocuments = sourceDoc.linkedDocuments || {};
-      sourceDoc.deletedLinkedDocuments = sourceDoc.deletedLinkedDocuments || {};
+      // Validate workflow rules
       if (targetType === 'invoice') {
-        delete sourceDoc.linkedDocuments.invoiceId;
-        delete sourceDoc.deletedLinkedDocuments.invoice;
+        if (sourceType !== 'quotation') {
+          return c.json({ 
+            success: false, 
+            error: 'สามารถสร้างใบแจ้งหนี้ได้จากใบเสนอราคาเท่านั้น' 
+          }, 400);
+        }
       } else if (targetType === 'receipt') {
-        delete sourceDoc.linkedDocuments.receiptId;
-        delete sourceDoc.deletedLinkedDocuments.receipt;
+        if (sourceType !== 'invoice') {
+          return c.json({ 
+            success: false, 
+            error: 'สามารถสร้างใบเสร็จได้จากใบแจ้งหนี้เท่านั้น' 
+          }, 400);
+        }
+        if (sourceDoc.status !== 'paid') {
+          return c.json({ 
+            success: false, 
+            error: 'ใบแจ้งหนี้ต้องมีสถานะ "ชำระแล้ว" ก่อนสร้างใบเสร็จ' 
+          }, 400);
+        }
       }
-      // Save the cleaned up source document
-      await Bun.write(sourceFilePath, JSON.stringify(sourceDoc, null, 2));
-    }
 
-    // Generate chain ID if not exists
-    const chainId = sourceDoc.chainId || `chain-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-    // Calculate total for paidAmount (receipts)
-    const subtotal = (sourceDoc.items || []).reduce(
-      (sum: number, item: { quantity: number; unitPrice: number }) => sum + item.quantity * item.unitPrice,
-      0
-    );
-    const taxAmount = subtotal * (sourceDoc.taxRate || 0);
-    const total = sourceDoc.taxType === 'withholding' 
-      ? subtotal - taxAmount 
-      : subtotal + taxAmount;
-
-    // Prepare linked document data (will be completed in generate route)
-    const linkedDocData = {
-      // Copy from source
-      items: sourceDoc.items,
-      taxRate: sourceDoc.taxRate,
-      taxType: sourceDoc.taxType,
-      taxLabel: sourceDoc.taxLabel,
-      taxConfig: sourceDoc.taxConfig,
-      profileId: sourceDoc.profileId, // Pass tax profile for auto-select in form
-      notes: sourceDoc.notes,
-      paymentTerms: sourceDoc.paymentTerms,
-      customerId: sourceDoc.customerId,
+      // Check if linked document already exists
+      const existingInvoiceId = sourceDoc.linkedDocuments?.invoiceId;
+      const existingReceiptId = sourceDoc.linkedDocuments?.receiptId;
+      const deletedInvoice = sourceDoc.deletedLinkedDocuments?.invoice;
+      const deletedReceipt = sourceDoc.deletedLinkedDocuments?.receipt;
       
-      // Chain tracking
-      chainId,
-      sourceDocumentId: sourceId,
-      sourceDocumentNumber: sourceDoc.documentNumber,
+      if (targetType === 'invoice' && existingInvoiceId && existingInvoiceId !== 'pending') {
+        return c.json({ 
+          success: false, 
+          error: `มีใบแจ้งหนี้ที่สร้างจากใบเสนอราคานี้แล้ว: ${existingInvoiceId}` 
+        }, 400);
+      }
+      if (targetType === 'receipt' && existingReceiptId && existingReceiptId !== 'pending') {
+        return c.json({ 
+          success: false, 
+          error: `มีใบเสร็จที่สร้างจากใบแจ้งหนี้นี้แล้ว: ${existingReceiptId}` 
+        }, 400);
+      }
       
-      // Type-specific fields
-      ...(targetType === 'invoice' ? {
-        dueDate: '', // User needs to set this
-      } : {}),
-      ...(targetType === 'receipt' ? {
-        paymentDate: new Date().toISOString().split('T')[0], // Today
-        paymentMethod: 'โอนเงิน', // Default
-        paidAmount: Math.round(total * 100) / 100,
-      } : {}),
+      // Clean up stale pending/deleted state
+      if ((targetType === 'invoice' && (existingInvoiceId === 'pending' || deletedInvoice)) ||
+          (targetType === 'receipt' && (existingReceiptId === 'pending' || deletedReceipt))) {
+        const linkedDocuments = { ...(sourceDoc.linkedDocuments || {}) };
+        const deletedLinkedDocuments = { ...(sourceDoc.deletedLinkedDocuments || {}) };
+        
+        if (targetType === 'invoice') {
+          delete linkedDocuments.invoiceId;
+          delete deletedLinkedDocuments.invoice;
+        } else if (targetType === 'receipt') {
+          delete linkedDocuments.receiptId;
+          delete deletedLinkedDocuments.receipt;
+        }
+        
+        await updateSourceDoc({ linkedDocuments, deletedLinkedDocuments });
+      }
+
+      // Generate chain ID if not exists
+      const chainId = sourceDoc.chainId || `chain-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+      // Calculate total for paidAmount (receipts)
+      const subtotal = (sourceDoc.items || []).reduce(
+        (sum: number, item: { quantity: number; unitPrice: number }) => sum + item.quantity * item.unitPrice,
+        0
+      );
+      const taxAmount = subtotal * (sourceDoc.taxRate || 0);
+      const total = sourceDoc.taxType === 'withholding' 
+        ? subtotal - taxAmount 
+        : subtotal + taxAmount;
+
+      // Prepare linked document data
+      const linkedDocData = {
+        items: sourceDoc.items,
+        taxRate: sourceDoc.taxRate,
+        taxType: sourceDoc.taxType,
+        taxLabel: sourceDoc.taxLabel,
+        taxConfig: sourceDoc.taxConfig,
+        profileId: sourceDoc.profileId,
+        notes: sourceDoc.notes,
+        paymentTerms: sourceDoc.paymentTerms,
+        customerId: sourceDoc.customerId,
+        chainId,
+        sourceDocumentId: sourceId,
+        sourceDocumentNumber: sourceDoc.documentNumber,
+        ...(targetType === 'invoice' ? { dueDate: '' } : {}),
+        ...(targetType === 'receipt' ? {
+          paymentDate: new Date().toISOString().split('T')[0],
+          paymentMethod: 'โอนเงิน',
+          paidAmount: Math.round(total * 100) / 100,
+        } : {}),
+      };
+
+      return c.json({ 
+        success: true, 
+        data: {
+          targetType,
+          sourceId,
+          sourceType,
+          sourceDocumentNumber: sourceDoc.documentNumber,
+          chainId,
+          linkedDocData,
+        },
+        message: `พร้อมสร้าง${targetType === 'invoice' ? 'ใบแจ้งหนี้' : 'ใบเสร็จ'}จาก ${sourceDoc.documentNumber}`
+      });
     };
 
-    // NOTE: We do NOT update source document here anymore.
-    // The linkedDocuments will be updated only when PDF is actually generated
-    // in the generate.ts route. This prevents "pending" state when user cancels.
+    if (USE_REPO) {
+      // SQLite mode
+      const sourceDoc = await documentsRepo.getById(sourceId);
+      if (!sourceDoc) {
+        return c.json({ success: false, error: 'ไม่พบเอกสารต้นทาง' }, 404);
+      }
 
-    return c.json({ 
-      success: true, 
-      data: {
-        targetType,
-        sourceId,
-        sourceType,
-        sourceDocumentNumber: sourceDoc.documentNumber,
-        chainId,
-        linkedDocData,
-      },
-      message: `พร้อมสร้าง${targetType === 'invoice' ? 'ใบแจ้งหนี้' : 'ใบเสร็จ'}จาก ${sourceDoc.documentNumber}`
+      return processCreateLinked(sourceDoc, async (updates) => {
+        await documentsRepo.update(sourceId, updates);
+      });
+    }
+
+    // Legacy JSON file mode
+    const sourceFilePath = path.join(EXAMPLES_DIR, `${sourceId}.json`);
+    const sourceFile = Bun.file(sourceFilePath);
+    if (!(await sourceFile.exists())) {
+      return c.json({ success: false, error: 'ไม่พบเอกสารต้นทาง' }, 404);
+    }
+
+    const sourceDoc = await sourceFile.json();
+    return processCreateLinked(sourceDoc, async (updates) => {
+      const updatedDoc = { ...sourceDoc, ...updates };
+      await Bun.write(sourceFilePath, JSON.stringify(updatedDoc, null, 2));
     });
   } catch (error) {
     console.error('Create linked error:', error);
@@ -491,9 +547,45 @@ app.post('/:id/create-linked', async (c) => {
 // GET /api/documents/:id/chain - ดูเอกสารทั้ง chain
 app.get('/:id/chain', async (c) => {
   const id = c.req.param('id');
-  const filePath = path.join(EXAMPLES_DIR, `${id}.json`);
 
   try {
+    // Helper to sort by document type order
+    const sortByTypeOrder = (docs: any[]) => {
+      const typeOrder = { quotation: 1, invoice: 2, receipt: 3 };
+      return docs.sort((a, b) => {
+        const orderA = typeOrder[a.type as keyof typeof typeOrder] || 99;
+        const orderB = typeOrder[b.type as keyof typeof typeOrder] || 99;
+        return orderA - orderB;
+      });
+    };
+
+    if (USE_REPO) {
+      // SQLite mode
+      const doc = await documentsRepo.getById(id);
+      if (!doc) {
+        return c.json({ success: false, error: 'ไม่พบเอกสาร' }, 404);
+      }
+
+      const chainId = doc.chainId;
+      if (!chainId) {
+        return c.json({ 
+          success: true, 
+          data: { chainId: null, documents: [doc] }
+        });
+      }
+
+      // Find all documents with same chainId
+      const allDocs = await documentsRepo.getAll();
+      const chainDocs = allDocs.filter(d => d.chainId === chainId);
+
+      return c.json({ 
+        success: true, 
+        data: { chainId, documents: sortByTypeOrder(chainDocs) }
+      });
+    }
+
+    // Legacy JSON file mode
+    const filePath = path.join(EXAMPLES_DIR, `${id}.json`);
     const file = Bun.file(filePath);
     if (!(await file.exists())) {
       return c.json({ success: false, error: 'ไม่พบเอกสาร' }, 404);
@@ -505,10 +597,7 @@ app.get('/:id/chain', async (c) => {
     if (!chainId) {
       return c.json({ 
         success: true, 
-        data: { 
-          chainId: null,
-          documents: [{ id, ...doc }] 
-        }
+        data: { chainId: null, documents: [{ id, ...doc }] }
       });
     }
 
@@ -521,28 +610,14 @@ app.get('/:id/chain', async (c) => {
         const docPath = path.join(EXAMPLES_DIR, f);
         const content = await Bun.file(docPath).json();
         if (content.chainId === chainId) {
-          chainDocs.push({
-            id: f.replace('.json', ''),
-            ...content,
-          });
+          chainDocs.push({ id: f.replace('.json', ''), ...content });
         }
       }
     }
 
-    // Sort by type order: quotation -> invoice -> receipt
-    const typeOrder = { quotation: 1, invoice: 2, receipt: 3 };
-    chainDocs.sort((a, b) => {
-      const orderA = typeOrder[a.type as keyof typeof typeOrder] || 99;
-      const orderB = typeOrder[b.type as keyof typeof typeOrder] || 99;
-      return orderA - orderB;
-    });
-
     return c.json({ 
       success: true, 
-      data: { 
-        chainId,
-        documents: chainDocs 
-      }
+      data: { chainId, documents: sortByTypeOrder(chainDocs) }
     });
   } catch (error) {
     return c.json({ success: false, error: 'เกิดข้อผิดพลาด' }, 500);
