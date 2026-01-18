@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react';
 import type { ApiResponse } from '@/types';
 
-const API_BASE = 'http://localhost:3001/api';
+// Use relative URL in production, absolute in development
+const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:3001/api';
 
 export function useApi() {
   const [loading, setLoading] = useState(false);

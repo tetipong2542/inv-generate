@@ -49,7 +49,7 @@ const typeConfig: Record<DocumentType, { label: string; shortLabel: string; colo
   receipt: { label: 'ใบเสร็จ', shortLabel: 'REC', color: 'text-green-700', bgColor: 'bg-green-100', icon: <Receipt className="w-3 h-3" /> },
 };
 
-const API_BASE = 'http://localhost:3001';
+const API_BASE = import.meta.env.PROD ? '' : 'http://localhost:3001';
 
 interface OutputFile {
   filename: string;

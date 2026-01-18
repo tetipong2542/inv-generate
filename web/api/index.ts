@@ -15,10 +15,15 @@ import services from './routes/services';
 
 const app = new Hono();
 
+// Detect if running in production (Railway sets NODE_ENV or PORT)
+const isProduction = process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT;
+
 // Middleware
 app.use('*', logger());
 app.use('*', cors({
-  origin: ['http://localhost:3000', 'http://localhost:5173'],
+  origin: isProduction 
+    ? '*'  // Allow all origins in production (or set specific domain)
+    : ['http://localhost:3000', 'http://localhost:5173'],
   allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowHeaders: ['Content-Type'],
 }));
@@ -97,9 +102,59 @@ app.route('/api/services', services);
 // Health check
 app.get('/api/health', (c) => c.json({ status: 'ok', message: 'Pacioli API is running' }));
 
+// In production, serve static files from React build
+if (isProduction) {
+  const staticPath = path.join(process.cwd(), 'web/app/dist');
+  
+  // Serve static assets
+  app.use('/assets/*', serveStatic({ root: staticPath }));
+  
+  // Serve index.html for all non-API routes (SPA fallback)
+  app.get('*', async (c) => {
+    const requestPath = c.req.path;
+    
+    // Skip API routes
+    if (requestPath.startsWith('/api/') || requestPath.startsWith('/output/')) {
+      return c.notFound();
+    }
+    
+    // Try to serve static file first
+    const filePath = path.join(staticPath, requestPath);
+    const file = Bun.file(filePath);
+    if (await file.exists()) {
+      const content = await file.arrayBuffer();
+      const ext = path.extname(requestPath).toLowerCase();
+      const contentTypes: Record<string, string> = {
+        '.js': 'application/javascript',
+        '.css': 'text/css',
+        '.svg': 'image/svg+xml',
+        '.png': 'image/png',
+        '.ico': 'image/x-icon',
+        '.woff': 'font/woff',
+        '.woff2': 'font/woff2',
+      };
+      return new Response(content, {
+        headers: { 'Content-Type': contentTypes[ext] || 'application/octet-stream' },
+      });
+    }
+    
+    // Fallback to index.html for SPA routing
+    const indexPath = path.join(staticPath, 'index.html');
+    const indexFile = Bun.file(indexPath);
+    if (await indexFile.exists()) {
+      const html = await indexFile.text();
+      return new Response(html, {
+        headers: { 'Content-Type': 'text/html' },
+      });
+    }
+    
+    return c.notFound();
+  });
+}
+
 // Start server
 const port = Number(process.env.PORT) || 3001;
-console.log(`Pacioli API running on http://localhost:${port}`);
+console.log(`Pacioli API running on http://localhost:${port}${isProduction ? ' (production mode)' : ''}`);
 
 export default {
   port,

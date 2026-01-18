@@ -1,0 +1,12 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "bun install && cd web/api && bun install && cd ../app && bun install && bun run build"
+  },
+  "deploy": {
+    "startCommand": "NODE_ENV=production bun run web/api/index.ts",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  }
+}

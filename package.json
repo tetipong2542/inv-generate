@@ -49,7 +49,10 @@
     "web:api": "bun run --watch web/api/index.ts",
     "web:app": "cd web/app && bun run dev",
     "web:install": "cd web/api && bun install && cd ../app && bun install",
-    "web:dev": "bun run web:api & bun run web:app"
+    "web:dev": "bun run web:api & bun run web:app",
+    "build": "cd web/app && bun install && bun run build",
+    "start": "NODE_ENV=production bun run web/api/index.ts",
+    "postinstall": "cd web/api && bun install"
   },
   "dependencies": {
     "puppeteer": "^22.0.0"

@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/tooltip';
 import type { DocumentType, TaxConfig } from '@/types';
 
-const API_URL = 'http://localhost:3001';
+const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
 
 const typeLabels: Record<DocumentType, string> = {
   quotation: 'ใบเสนอราคา',
