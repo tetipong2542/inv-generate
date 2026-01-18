@@ -97,6 +97,25 @@ function convertToLegacyTax(taxConfig: TaxConfig): { taxRate: number; taxType: '
 // Helper function to get next revision number
 async function getNextRevisionNumber(originalDocNumber: string): Promise<number> {
   try {
+    if (USE_REPO) {
+      // SQLite: Query documents for revisions
+      const allDocs = await documentsRepo.getAll();
+      let maxRevision = 0;
+      
+      for (const doc of allDocs) {
+        const revisionMatch = doc.documentNumber?.match(new RegExp(`${originalDocNumber.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-R(\\d+)$`));
+        if (revisionMatch) {
+          const revNum = parseInt(revisionMatch[1], 10);
+          if (revNum > maxRevision) {
+            maxRevision = revNum;
+          }
+        }
+      }
+      
+      return maxRevision + 1;
+    }
+    
+    // JSON fallback
     const files = await readdir(EXAMPLES_DIR);
     let maxRevision = 0;
     
@@ -122,6 +141,17 @@ async function getNextRevisionNumber(originalDocNumber: string): Promise<number>
 // Helper function to update original document status
 async function updateOriginalDocumentStatus(docId: string, status: string): Promise<boolean> {
   try {
+    if (USE_REPO) {
+      // SQLite: Update via repository
+      await documentsRepo.update(docId, { 
+        status, 
+        revisedAt: new Date().toISOString(),
+        statusUpdatedAt: new Date().toISOString(),
+      });
+      return true;
+    }
+    
+    // JSON fallback
     const filePath = path.join(EXAMPLES_DIR, `${docId}.json`);
     const file = Bun.file(filePath);
     
@@ -145,6 +175,25 @@ async function updateOriginalDocumentStatus(docId: string, status: string): Prom
 // Helper function to update source document's linkedDocuments (for Document Chain)
 async function updateSourceDocumentLinks(sourceDocId: string, targetType: string, targetDocId: string): Promise<boolean> {
   try {
+    if (USE_REPO) {
+      // SQLite: Update via repository
+      const sourceDoc = await documentsRepo.getById(sourceDocId);
+      if (!sourceDoc) {
+        return false;
+      }
+      
+      const linkedDocuments = sourceDoc.linkedDocuments || {};
+      if (targetType === 'invoice') {
+        linkedDocuments.invoiceId = targetDocId;
+      } else if (targetType === 'receipt') {
+        linkedDocuments.receiptId = targetDocId;
+      }
+      
+      await documentsRepo.update(sourceDocId, { linkedDocuments });
+      return true;
+    }
+    
+    // JSON fallback
     const filePath = path.join(EXAMPLES_DIR, `${sourceDocId}.json`);
     const file = Bun.file(filePath);
     
@@ -377,12 +426,14 @@ app.post('/', async (c) => {
       await incrementDocumentCounter(type, finalDocumentData.documentNumber);
     }
 
-    // Save document JSON to examples folder for tracking
+    // Save document to database for tracking
     try {
-      await mkdir(EXAMPLES_DIR, { recursive: true });
-      const docJsonPath = path.join(EXAMPLES_DIR, `${type}-${finalDocumentData.documentNumber}.json`);
+      const docId = `${type}-${finalDocumentData.documentNumber}`;
       const docToSave = {
         ...finalDocumentData,
+        id: docId,
+        documentNumber: finalDocumentData.documentNumber,
+        issueDate: finalDocumentData.issueDate || new Date().toISOString().split('T')[0],
         customerId: customerId || null,
         type,
         createdAt: new Date().toISOString(),
@@ -399,7 +450,16 @@ app.post('/', async (c) => {
           sourceDocumentNumber,
         } : {}),
       };
-      await Bun.write(docJsonPath, JSON.stringify(docToSave, null, 2));
+      
+      if (USE_REPO) {
+        // SQLite: Save via repository
+        await documentsRepo.create(docToSave);
+      } else {
+        // JSON fallback
+        await mkdir(EXAMPLES_DIR, { recursive: true });
+        const docJsonPath = path.join(EXAMPLES_DIR, `${docId}.json`);
+        await Bun.write(docJsonPath, JSON.stringify(docToSave, null, 2));
+      }
       
       // Update original document status to 'revised' if this is a revision
       if (isRevision && originalDocumentId) {
@@ -408,11 +468,11 @@ app.post('/', async (c) => {
       
       // Update source document's linkedDocuments if this is a chain document
       if (sourceDocumentId && chainId) {
-        await updateSourceDocumentLinks(sourceDocumentId, type, `${type}-${finalDocumentData.documentNumber}`);
+        await updateSourceDocumentLinks(sourceDocumentId, type, docId);
       }
     } catch (saveError) {
-      console.error('Error saving document JSON:', saveError);
-      // Don't fail the request if JSON save fails
+      console.error('Error saving document:', saveError);
+      // Don't fail the request if save fails
     }
 
     return c.json({ 
@@ -443,21 +503,33 @@ app.post('/preview', async (c) => {
     // Load customer if needed
     let customer = documentData.customer;
     if (!customer && customerId) {
-      const customerPath = path.join(PROJECT_ROOT, 'customers', `${customerId}.json`);
-      const customerFile = Bun.file(customerPath);
-      
-      if (await customerFile.exists()) {
-        customer = await customerFile.json();
+      if (USE_REPO) {
+        customer = await customersRepo.getById(customerId);
+      } else {
+        const customerPath = path.join(PROJECT_ROOT, 'customers', `${customerId}.json`);
+        const customerFile = Bun.file(customerPath);
+        
+        if (await customerFile.exists()) {
+          customer = await customerFile.json();
+        }
       }
     }
 
     // Load freelancer config
-    const configPath = path.join(PROJECT_ROOT, 'config', 'freelancer.json');
-    const configFile = Bun.file(configPath);
-    
     let freelancer = null;
-    if (await configFile.exists()) {
-      freelancer = await configFile.json();
+    if (USE_REPO) {
+      const freelancers = await freelancersRepo.getAll();
+      if (freelancers.length > 0) {
+        const freelancerId = documentData.freelancerId || freelancers[0].id;
+        freelancer = await freelancersRepo.getById(freelancerId);
+      }
+    } else {
+      const configPath = path.join(PROJECT_ROOT, 'config', 'freelancer.json');
+      const configFile = Bun.file(configPath);
+      
+      if (await configFile.exists()) {
+        freelancer = await configFile.json();
+      }
     }
 
     // Calculate totals
