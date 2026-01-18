@@ -2,12 +2,16 @@ import { Hono } from 'hono';
 import path, { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { mkdir, readdir } from 'fs/promises';
+import { freelancersRepo, customersRepo, documentsRepo } from '../db/repository';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 // Go up from web/api/routes to project root
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..', '..');
 const EXAMPLES_DIR = path.join(PROJECT_ROOT, 'examples');
+
+// Use repository for data access (supports both JSON and SQLite)
+const USE_REPO = process.env.USE_SQLITE === 'true' || process.env.RAILWAY_ENVIRONMENT;
 
 const app = new Hono();
 
@@ -209,18 +213,42 @@ app.post('/', async (c) => {
     const { validateInvoice, validateQuotation, validateReceipt, validateCustomer, validateFreelancerConfig } = await import(validatorPath);
     const { getNextDocumentNumber, incrementDocumentCounter } = await import(metadataPath);
 
-    // Load freelancer config
-    const configPath = path.join(PROJECT_ROOT, 'config', 'freelancer.json');
-    const configFile = Bun.file(configPath);
+    // Load freelancer config - support both SQLite and JSON file
+    let freelancerConfig: any;
     
-    if (!(await configFile.exists())) {
-      return c.json({ 
-        success: false, 
-        error: 'ไม่พบไฟล์ config/freelancer.json' 
-      }, 400);
+    if (USE_REPO) {
+      // Try to load from SQLite first
+      const freelancers = await freelancersRepo.getAll();
+      if (freelancers.length === 0) {
+        return c.json({ 
+          success: false, 
+          error: 'ไม่พบข้อมูลผู้ออกเอกสาร กรุณาเพิ่มผู้ออกเอกสารก่อน' 
+        }, 400);
+      }
+      // Use the first freelancer (or could use documentData.freelancerId)
+      const freelancerId = documentData.freelancerId || freelancers[0].id;
+      const freelancer = await freelancersRepo.getById(freelancerId);
+      if (!freelancer) {
+        return c.json({ 
+          success: false, 
+          error: 'ไม่พบข้อมูลผู้ออกเอกสาร' 
+        }, 400);
+      }
+      freelancerConfig = freelancer;
+    } else {
+      // Legacy: Load from JSON file
+      const configPath = path.join(PROJECT_ROOT, 'config', 'freelancer.json');
+      const configFile = Bun.file(configPath);
+      
+      if (!(await configFile.exists())) {
+        return c.json({ 
+          success: false, 
+          error: 'ไม่พบไฟล์ config/freelancer.json' 
+        }, 400);
+      }
+      
+      freelancerConfig = await configFile.json();
     }
-    
-    const freelancerConfig = await configFile.json();
     
     // Validate freelancer config
     const configValidation = validateFreelancerConfig(freelancerConfig);
@@ -241,20 +269,31 @@ app.post('/', async (c) => {
       }
     }
 
-    // Load customer data
+    // Load customer data - support both SQLite and JSON file
     let customer = documentData.customer;
     if (!customer && customerId) {
-      const customerPath = path.join(PROJECT_ROOT, 'customers', `${customerId}.json`);
-      const customerFile = Bun.file(customerPath);
-      
-      if (!(await customerFile.exists())) {
-        return c.json({ 
-          success: false, 
-          error: 'ไม่พบข้อมูลลูกค้า' 
-        }, 400);
+      if (USE_REPO) {
+        const customerData = await customersRepo.getById(customerId);
+        if (!customerData) {
+          return c.json({ 
+            success: false, 
+            error: 'ไม่พบข้อมูลลูกค้า' 
+          }, 400);
+        }
+        customer = customerData;
+      } else {
+        const customerPath = path.join(PROJECT_ROOT, 'customers', `${customerId}.json`);
+        const customerFile = Bun.file(customerPath);
+        
+        if (!(await customerFile.exists())) {
+          return c.json({ 
+            success: false, 
+            error: 'ไม่พบข้อมูลลูกค้า' 
+          }, 400);
+        }
+        
+        customer = await customerFile.json();
       }
-      
-      customer = await customerFile.json();
     }
 
     if (!customer) {
