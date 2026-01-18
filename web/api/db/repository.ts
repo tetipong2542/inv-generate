@@ -360,6 +360,21 @@ export const freelancersRepo = {
       await Bun.write(filePath, JSON.stringify({ ...data, ...updates }, null, 2));
     }
   },
+
+  async delete(id: string): Promise<boolean> {
+    if (USE_SQLITE) {
+      return db.deleteFreelancer(id);
+    }
+    
+    try {
+      const { unlink } = await import('fs/promises');
+      const filePath = path.join(FREELANCERS_DIR, `${id}.json`);
+      await unlink(filePath);
+      return true;
+    } catch {
+      return false;
+    }
+  },
 };
 
 // ============================================

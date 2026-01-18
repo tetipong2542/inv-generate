@@ -341,6 +341,12 @@ export async function updateFreelancer(id: string, freelancer: Partial<{
   db.query(`UPDATE freelancers SET ${sets.join(', ')} WHERE id = ?`).run(...values);
 }
 
+export async function deleteFreelancer(id: string): Promise<boolean> {
+  const db = await getDatabase();
+  const result = db.query('DELETE FROM freelancers WHERE id = ?').run(id);
+  return result.changes > 0;
+}
+
 // Services operations
 export interface ServiceRow {
   id: string;

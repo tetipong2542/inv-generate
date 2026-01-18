@@ -5,8 +5,12 @@ import { documentsRepo } from '../db/repository';
 
 const app = new Hono();
 
-const EXAMPLES_DIR = path.join(process.cwd(), 'examples');
-const OUTPUT_DIR = path.join(process.cwd(), 'output');
+const PROJECT_ROOT = process.cwd();
+const EXAMPLES_DIR = path.join(PROJECT_ROOT, 'examples');
+
+// Use /data in production (Railway volume), local path in development
+const DATA_DIR = process.env.RAILWAY_ENVIRONMENT ? '/data' : PROJECT_ROOT;
+const OUTPUT_DIR = path.join(DATA_DIR, 'output');
 
 // Use repository for data access (supports both JSON and SQLite)
 const USE_REPO = process.env.USE_SQLITE === 'true' || process.env.RAILWAY_ENVIRONMENT;
@@ -173,9 +177,82 @@ app.patch('/:id/status', async (c) => {
 // DELETE /api/documents/:id - ลบเอกสาร (พร้อมลบ PDF ถ้ามี และบันทึกประวัติ)
 app.delete('/:id', async (c) => {
   const id = c.req.param('id');
-  const filePath = path.join(EXAMPLES_DIR, `${id}.json`);
 
   try {
+    if (USE_REPO) {
+      // SQLite mode
+      const doc = await documentsRepo.getById(id);
+      if (!doc) {
+        return c.json({ success: false, error: 'ไม่พบเอกสาร' }, 404);
+      }
+
+      const documentNumber = doc.documentNumber || id;
+      const chainId = doc.chainId;
+      const sourceDocumentId = doc.sourceDocumentId;
+
+      // If this document was part of a chain, update the source document
+      if (chainId && sourceDocumentId) {
+        const sourceDoc = await documentsRepo.getById(sourceDocumentId);
+        if (sourceDoc) {
+          const docType = doc.type || 'unknown';
+          const linkedDocuments = sourceDoc.linkedDocuments || {};
+          const deletedLinkedDocuments = sourceDoc.deletedLinkedDocuments || {};
+          
+          if (docType === 'invoice') {
+            deletedLinkedDocuments.invoice = {
+              id: id,
+              documentNumber: documentNumber,
+              deletedAt: new Date().toISOString(),
+            };
+            delete linkedDocuments.invoiceId;
+          } else if (docType === 'receipt') {
+            deletedLinkedDocuments.receipt = {
+              id: id,
+              documentNumber: documentNumber,
+              deletedAt: new Date().toISOString(),
+            };
+            delete linkedDocuments.receiptId;
+          }
+          
+          await documentsRepo.update(sourceDocumentId, { 
+            linkedDocuments, 
+            deletedLinkedDocuments 
+          });
+        }
+      }
+
+      // Delete document from SQLite
+      const deleted = await documentsRepo.delete(id);
+      if (!deleted) {
+        return c.json({ success: false, error: 'ไม่สามารถลบเอกสารได้' }, 500);
+      }
+
+      // Try to delete associated PDF files
+      const deletedPdfs: string[] = [];
+      try {
+        await mkdir(OUTPUT_DIR, { recursive: true });
+        const outputFiles = await readdir(OUTPUT_DIR);
+        for (const pdfFile of outputFiles) {
+          if (pdfFile.endsWith('.pdf') && 
+              (pdfFile.includes(documentNumber) || pdfFile.includes(id))) {
+            const pdfPath = path.join(OUTPUT_DIR, pdfFile);
+            await unlink(pdfPath);
+            deletedPdfs.push(pdfFile);
+          }
+        }
+      } catch (pdfError) {
+        console.log('PDF deletion skipped:', pdfError);
+      }
+
+      return c.json({ 
+        success: true, 
+        message: 'ลบเอกสารเรียบร้อย',
+        deletedPdfs 
+      });
+    }
+
+    // Legacy JSON file mode
+    const filePath = path.join(EXAMPLES_DIR, `${id}.json`);
     const file = Bun.file(filePath);
     if (!(await file.exists())) {
       return c.json({ success: false, error: 'ไม่พบเอกสาร' }, 404);
@@ -252,6 +329,7 @@ app.delete('/:id', async (c) => {
       deletedPdfs 
     });
   } catch (error) {
+    console.error('Delete document error:', error);
     return c.json({ success: false, error: 'เกิดข้อผิดพลาดในการลบเอกสาร' }, 500);
   }
 });

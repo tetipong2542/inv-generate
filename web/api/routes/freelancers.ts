@@ -225,8 +225,17 @@ app.delete('/:id', async (c) => {
     const id = c.req.param('id');
 
     if (USE_REPO) {
-      // Note: freelancersRepo doesn't have delete method yet, but we can add it
-      return c.json({ success: false, error: 'ไม่สามารถลบผู้ออกเอกสารได้' }, 400);
+      const existing = await freelancersRepo.getById(id);
+      if (!existing) {
+        return c.json({ success: false, error: 'ไม่พบข้อมูลผู้ออกเอกสาร' }, 404);
+      }
+      
+      const deleted = await freelancersRepo.delete(id);
+      if (deleted) {
+        return c.json({ success: true, message: 'ลบข้อมูลเรียบร้อย' });
+      } else {
+        return c.json({ success: false, error: 'ไม่สามารถลบข้อมูลได้' }, 500);
+      }
     }
 
     const filePath = path.join(FREELANCERS_DIR, `${id}.json`);
