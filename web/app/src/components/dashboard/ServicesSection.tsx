@@ -138,7 +138,12 @@ export function ServicesSection() {
   };
 
   const calculateTotal = (items: LineItem[]) => {
-    return items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+    if (!items || !Array.isArray(items)) return 0;
+    return items.reduce((sum, item) => {
+      const qty = item?.quantity ?? 0;
+      const price = item?.unitPrice ?? 0;
+      return sum + qty * price;
+    }, 0);
   };
 
   const itemCount = services.filter(s => s.type === 'item').length;
@@ -318,12 +323,12 @@ export function ServicesSection() {
                               <div className="space-y-1">
                                 {(item.items || []).map((subItem, idx) => (
                                   <div key={idx} className="flex justify-between text-sm bg-white p-2 rounded">
-                                    <span className="flex-1">{subItem.description}</span>
+                                    <span className="flex-1">{subItem?.description ?? ''}</span>
                                     <span className="text-gray-500 mx-4">
-                                      {subItem.quantity} {subItem.unit}
+                                      {subItem?.quantity ?? 0} {subItem?.unit ?? ''}
                                     </span>
                                     <span className="font-medium w-24 text-right">
-                                      {formatNumber(subItem.quantity * subItem.unitPrice)} บาท
+                                      {formatNumber((subItem?.quantity ?? 0) * (subItem?.unitPrice ?? 0))} บาท
                                     </span>
                                   </div>
                                 ))}

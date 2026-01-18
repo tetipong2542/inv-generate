@@ -445,8 +445,8 @@ export function DocumentStep() {
                   >
                     <div className="font-medium text-sm">{service.name}</div>
                     <div className="text-xs text-gray-500 mt-1">
-                      {service.items.length} รายการ • {formatNumber(
-                        service.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
+                      {(service.items || []).length} รายการ • {formatNumber(
+                        (service.items || []).reduce((sum, item) => sum + (item?.quantity ?? 0) * (item?.unitPrice ?? 0), 0)
                       )} บาท
                     </div>
                   </button>
