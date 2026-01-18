@@ -100,7 +100,7 @@ export function ChainFlowDiagram({
 
   function calculateTotal(doc: DocumentWithMeta): number {
     const subtotal = (doc.items || []).reduce(
-      (sum, item) => sum + item.quantity * item.unitPrice,
+      (sum, item) => sum + (item?.quantity ?? 0) * (item?.unitPrice ?? 0),
       0
     );
     const taxAmount = subtotal * (doc.taxRate || 0);

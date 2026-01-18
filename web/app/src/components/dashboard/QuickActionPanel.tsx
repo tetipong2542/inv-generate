@@ -26,7 +26,7 @@ export function QuickActionPanel() {
   const selectedItems = getSelectedServiceItems();
 
   const totalAmount = selectedItems.reduce(
-    (sum, item) => sum + item.quantity * item.unitPrice,
+    (sum, item) => sum + (item?.quantity ?? 0) * (item?.unitPrice ?? 0),
     0
   );
 

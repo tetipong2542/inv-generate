@@ -125,7 +125,7 @@ export function PreviewStep() {
 
   const calculateSubtotal = () => {
     return (document.items || []).reduce((sum, item) => {
-      return sum + (item.quantity * item.unitPrice);
+      return sum + ((item?.quantity ?? 0) * (item?.unitPrice ?? 0));
     }, 0);
   };
 
