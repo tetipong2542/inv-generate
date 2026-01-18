@@ -393,8 +393,6 @@ export interface Service {
   type?: 'item' | 'package';
   name: string;
   description?: string;
-  unit?: string;
-  unitPrice?: number;
   items?: ServiceItem[];
   category?: string;
   isActive?: boolean;
@@ -406,14 +404,7 @@ export const servicesRepo = {
   async getAll(): Promise<Service[]> {
     if (USE_SQLITE) {
       const rows = await db.getAllServices();
-      return rows.map(r => ({
-        id: r.id,
-        name: r.name,
-        description: r.description || undefined,
-        unit: r.unit,
-        unitPrice: r.unit_price,
-        category: r.category || undefined,
-      }));
+      return rows.map(db.serviceRowToApi);
     }
     
     try {
@@ -436,14 +427,7 @@ export const servicesRepo = {
     if (USE_SQLITE) {
       const row = await db.getServiceById(id);
       if (!row) return null;
-      return {
-        id: row.id,
-        name: row.name,
-        description: row.description || undefined,
-        unit: row.unit,
-        unitPrice: row.unit_price,
-        category: row.category || undefined,
-      };
+      return db.serviceRowToApi(row);
     }
     
     try {
@@ -463,11 +447,12 @@ export const servicesRepo = {
     if (USE_SQLITE) {
       await db.createService({
         id: service.id,
+        type: service.type,
         name: service.name,
         description: service.description,
-        unit: service.unit || '',
-        unit_price: service.unitPrice || 0,
+        items: service.items,
         category: service.category,
+        isActive: service.isActive,
       });
       return;
     }
@@ -480,11 +465,12 @@ export const servicesRepo = {
   async update(id: string, updates: Partial<Service>): Promise<void> {
     if (USE_SQLITE) {
       await db.updateService(id, {
+        type: updates.type,
         name: updates.name,
         description: updates.description,
-        unit: updates.unit,
-        unit_price: updates.unitPrice,
+        items: updates.items,
         category: updates.category,
+        isActive: updates.isActive,
       });
       return;
     }

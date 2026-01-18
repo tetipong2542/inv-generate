@@ -77,19 +77,32 @@ function initializeTables(db: Database) {
     )
   `);
 
-  // Services table (saved service items)
+  // Services table (saved service items and packages)
+  // Note: 'items' column stores JSON array of line items
   db.exec(`
     CREATE TABLE IF NOT EXISTS services (
       id TEXT PRIMARY KEY,
+      type TEXT DEFAULT 'item',
       name TEXT NOT NULL,
       description TEXT,
-      unit TEXT NOT NULL,
-      unit_price REAL NOT NULL,
+      items TEXT,
       category TEXT,
+      is_active INTEGER DEFAULT 1,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Migration: Add new columns if they don't exist (for existing databases)
+  try {
+    db.exec(`ALTER TABLE services ADD COLUMN type TEXT DEFAULT 'item'`);
+  } catch (e) { /* column already exists */ }
+  try {
+    db.exec(`ALTER TABLE services ADD COLUMN items TEXT`);
+  } catch (e) { /* column already exists */ }
+  try {
+    db.exec(`ALTER TABLE services ADD COLUMN is_active INTEGER DEFAULT 1`);
+  } catch (e) { /* column already exists */ }
 
   // Metadata table (document counters, etc.)
   db.exec(`
@@ -350,11 +363,12 @@ export async function deleteFreelancer(id: string): Promise<boolean> {
 // Services operations
 export interface ServiceRow {
   id: string;
+  type: string;
   name: string;
   description: string | null;
-  unit: string;
-  unit_price: number;
+  items: string | null;  // JSON array of line items
   category: string | null;
+  is_active: number;
   created_at: string;
   updated_at: string;
 }
@@ -366,23 +380,25 @@ export async function getAllServices(): Promise<ServiceRow[]> {
 
 export async function createService(service: {
   id: string;
+  type?: string;
   name: string;
   description?: string;
-  unit: string;
-  unit_price: number;
+  items?: object[];
   category?: string;
+  isActive?: boolean;
 }): Promise<void> {
   const db = await getDatabase();
   db.query(`
-    INSERT INTO services (id, name, description, unit, unit_price, category)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO services (id, type, name, description, items, category, is_active)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `).run(
     service.id,
+    service.type || 'item',
     service.name,
     service.description || null,
-    service.unit,
-    service.unit_price,
-    service.category || null
+    service.items ? JSON.stringify(service.items) : null,
+    service.category || null,
+    service.isActive !== false ? 1 : 0
   );
 }
 
@@ -398,25 +414,41 @@ export async function getServiceById(id: string): Promise<ServiceRow | null> {
 }
 
 export async function updateService(id: string, service: Partial<{
+  type: string;
   name: string;
   description: string;
-  unit: string;
-  unit_price: number;
+  items: object[];
   category: string;
-  data: string;
+  isActive: boolean;
 }>): Promise<void> {
   const db = await getDatabase();
   const sets: string[] = ['updated_at = CURRENT_TIMESTAMP'];
   const values: any[] = [];
 
+  if (service.type !== undefined) { sets.push('type = ?'); values.push(service.type); }
   if (service.name !== undefined) { sets.push('name = ?'); values.push(service.name); }
   if (service.description !== undefined) { sets.push('description = ?'); values.push(service.description); }
-  if (service.unit !== undefined) { sets.push('unit = ?'); values.push(service.unit); }
-  if (service.unit_price !== undefined) { sets.push('unit_price = ?'); values.push(service.unit_price); }
+  if (service.items !== undefined) { sets.push('items = ?'); values.push(JSON.stringify(service.items)); }
   if (service.category !== undefined) { sets.push('category = ?'); values.push(service.category); }
+  if (service.isActive !== undefined) { sets.push('is_active = ?'); values.push(service.isActive ? 1 : 0); }
 
   values.push(id);
   db.query(`UPDATE services SET ${sets.join(', ')} WHERE id = ?`).run(...values);
+}
+
+// Helper to convert service row to API format
+export function serviceRowToApi(row: ServiceRow): any {
+  return {
+    id: row.id,
+    type: row.type || 'item',
+    name: row.name,
+    description: row.description,
+    items: row.items ? JSON.parse(row.items) : [],
+    category: row.category,
+    isActive: row.is_active === 1,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
 // Metadata operations
