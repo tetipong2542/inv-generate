@@ -446,6 +446,7 @@ app.post('/', async (c) => {
         // Revision tracking
         ...(isRevision && originalDocumentNumber ? {
           originalDocumentNumber: originalDocumentNumber,
+          originalDocumentId: originalDocumentId || null,
           revisionNumber: finalDocumentData.revisionNumber,
         } : {}),
         // Document Chain tracking

@@ -236,6 +236,11 @@ app.delete('/:id', async (c) => {
       const documentNumber = doc.documentNumber || id;
       const chainId = doc.chainId;
       const sourceDocumentId = doc.sourceDocumentId;
+      
+      // Check if this is a revision document (has revisionNumber or documentNumber ends with -R*)
+      const isRevision = (doc.revisionNumber && doc.revisionNumber > 0) || 
+                         (documentNumber && /-R\d+$/.test(documentNumber));
+      const originalDocumentId = (doc as any).originalDocumentId;
 
       // If this document was part of a chain, update the source document
       if (chainId && sourceDocumentId) {
@@ -265,6 +270,29 @@ app.delete('/:id', async (c) => {
             linkedDocuments, 
             deletedLinkedDocuments 
           });
+        }
+      }
+
+      // If this is a revision, reset the original document status
+      if (isRevision && originalDocumentId) {
+        const originalDoc = await documentsRepo.getById(originalDocumentId);
+        if (originalDoc && originalDoc.status === 'revised') {
+          // Check if there are other revisions still existing
+          const allDocs = await documentsRepo.getAll();
+          const otherRevisions = allDocs.filter(d => 
+            d.id !== id && 
+            (d as any).originalDocumentId === originalDocumentId
+          );
+          
+          // Only reset if no other revisions exist
+          if (otherRevisions.length === 0) {
+            // Reset to previous status (approved or pending based on document type)
+            const previousStatus = originalDoc.type === 'quotation' ? 'approved' : 'pending';
+            await documentsRepo.update(originalDocumentId, { 
+              status: previousStatus,
+              statusUpdatedAt: new Date().toISOString()
+            });
+          }
         }
       }
 
@@ -310,6 +338,11 @@ app.delete('/:id', async (c) => {
     const documentNumber = docData.documentNumber || id;
     const chainId = docData.chainId;
     const sourceDocumentId = docData.sourceDocumentId;
+    
+    // Check if this is a revision document
+    const isRevision = (docData.revisionNumber && docData.revisionNumber > 0) || 
+                       (documentNumber && /-R\d+$/.test(documentNumber));
+    const originalDocumentId = docData.originalDocumentId;
 
     // If this document was part of a chain, update the source document
     // to mark this linked document as deleted (so user can recreate)
@@ -346,6 +379,39 @@ app.delete('/:id', async (c) => {
         }
         
         await Bun.write(sourceFilePath, JSON.stringify(sourceDoc, null, 2));
+      }
+    }
+
+    // If this is a revision, reset the original document status
+    if (isRevision && originalDocumentId) {
+      const originalFilePath = path.join(EXAMPLES_DIR, `${originalDocumentId}.json`);
+      const originalFile = Bun.file(originalFilePath);
+      if (await originalFile.exists()) {
+        const originalDoc = await originalFile.json();
+        if (originalDoc.status === 'revised') {
+          // Check if there are other revisions still existing
+          const examplesFiles = await readdir(EXAMPLES_DIR);
+          let hasOtherRevisions = false;
+          
+          for (const f of examplesFiles) {
+            if (f.endsWith('.json') && f !== `${id}.json`) {
+              const otherDoc = await Bun.file(path.join(EXAMPLES_DIR, f)).json();
+              if (otherDoc.originalDocumentId === originalDocumentId) {
+                hasOtherRevisions = true;
+                break;
+              }
+            }
+          }
+          
+          // Only reset if no other revisions exist
+          if (!hasOtherRevisions) {
+            const docType = originalDoc.type || 
+              (originalDoc.validUntil ? 'quotation' : originalDoc.dueDate ? 'invoice' : 'receipt');
+            originalDoc.status = docType === 'quotation' ? 'approved' : 'pending';
+            originalDoc.statusUpdatedAt = new Date().toISOString();
+            await Bun.write(originalFilePath, JSON.stringify(originalDoc, null, 2));
+          }
+        }
       }
     }
 
