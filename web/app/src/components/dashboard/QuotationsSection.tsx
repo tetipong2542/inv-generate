@@ -311,10 +311,39 @@ export function QuotationsSection() {
   }, [documents, typeFilter, statusFilter, searchTerm, selection.customerId, customers]);
 
   const calculateTotal = (doc: DocumentWithMeta) => {
+    // If document has pre-calculated taxBreakdown, use it
+    if (doc.taxBreakdown?.total !== undefined) {
+      return doc.taxBreakdown.total;
+    }
+
     const subtotal = (doc.items || []).reduce(
       (sum, item) => sum + (item?.quantity ?? 0) * (item?.unitPrice ?? 0),
       0
     );
+
+    // Check if using new taxConfig with grossUp
+    if (doc.taxConfig) {
+      const { vat, withholding, grossUp } = doc.taxConfig;
+      let total = subtotal;
+
+      if (grossUp && withholding.enabled) {
+        // Gross-up: total = subtotal / (1 - whtRate)
+        // Customer pays more so that after withholding, freelancer gets subtotal
+        total = subtotal / (1 - withholding.rate);
+      } else if (withholding.enabled) {
+        // Normal withholding: total = subtotal - (subtotal * whtRate)
+        total = subtotal - (subtotal * withholding.rate);
+      }
+
+      if (vat.enabled) {
+        // Add VAT on top
+        total = total + (subtotal * vat.rate);
+      }
+
+      return total;
+    }
+
+    // Fallback to legacy calculation
     const taxAmount = subtotal * (doc.taxRate || 0);
     return doc.taxType === 'withholding' ? subtotal - taxAmount : subtotal + taxAmount;
   };
