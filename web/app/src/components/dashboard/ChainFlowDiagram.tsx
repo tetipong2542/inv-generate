@@ -1,4 +1,4 @@
-import { FileText, FileInput, Receipt, Check, Clock, Pause, X, ChevronRight, FileDown, Plus, Eye, RefreshCw, Trash2 } from 'lucide-react';
+import { FileText, FileInput, Receipt, Check, Clock, Pause, X, ChevronRight, FileDown, Plus, Eye, RefreshCw, Trash2, AlertTriangle, Edit, History, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -25,12 +25,21 @@ interface ChainDocument {
   deleted?: DeletedDocument; // Track deleted documents
 }
 
+interface RevisionDocument {
+  id: string;
+  documentNumber: string;
+  revisionNumber: number;
+  createdAt: string;
+  isActive: boolean;
+}
+
 interface ChainFlowDiagramProps {
   chainId: string | null;
   documents: DocumentWithMeta[];
   onCreateLinked?: (sourceDoc: DocumentWithMeta, targetType: 'invoice' | 'receipt') => void;
   onViewPdf?: (doc: DocumentWithMeta) => void;
   onViewDocument?: (doc: DocumentWithMeta) => void;
+  onEditDocument?: (doc: DocumentWithMeta) => void;
 }
 
 const statusConfig: Record<DocumentStatus, { label: string; color: string; bgColor: string; icon: typeof Check }> = {
@@ -54,6 +63,7 @@ export function ChainFlowDiagram({
   onCreateLinked,
   onViewPdf,
   onViewDocument,
+  onEditDocument,
 }: ChainFlowDiagramProps) {
   // Build chain structure
   const quotation = documents.find(d => d.type === 'quotation');
@@ -106,6 +116,54 @@ export function ChainFlowDiagram({
     const taxAmount = subtotal * (doc.taxRate || 0);
     return doc.taxType === 'withholding' ? subtotal - taxAmount : subtotal + taxAmount;
   }
+
+  // Calculate amount differences between documents
+  const qtTotal = quotation ? calculateTotal(quotation) : 0;
+  const invTotal = invoice ? calculateTotal(invoice) : 0;
+  const recTotal = receipt ? calculateTotal(receipt) : 0;
+
+  const qtInvDiff = quotation && invoice ? Math.abs(qtTotal - invTotal) : 0;
+  const invRecDiff = invoice && receipt ? Math.abs(invTotal - recTotal) : 0;
+  const hasQtInvWarning = qtInvDiff > 0;
+  const hasInvRecWarning = invRecDiff > 0;
+
+  // Collect revisions for documents in this chain
+  const getRevisions = (doc: DocumentWithMeta | undefined): RevisionDocument[] => {
+    if (!doc || !doc.id || !doc.documentNumber) return [];
+    const revisions: RevisionDocument[] = [];
+    
+    // Check if this document has revisions (from originalDocumentId relationship)
+    // The current document is the active one
+    revisions.push({
+      id: doc.id,
+      documentNumber: doc.documentNumber,
+      revisionNumber: doc.revisionNumber || 0,
+      createdAt: doc.issueDate || '',
+      isActive: true,
+    });
+    
+    // Add any older revisions that might be in the documents array
+    const originalId = (doc as any).originalDocumentId;
+    if (originalId) {
+      const original = documents.find(d => d.id === originalId);
+      if (original && original.id && original.documentNumber) {
+        revisions.unshift({
+          id: original.id,
+          documentNumber: original.documentNumber,
+          revisionNumber: 0,
+          createdAt: original.issueDate || '',
+          isActive: false,
+        });
+      }
+    }
+    
+    return revisions;
+  };
+
+  const quotationRevisions = getRevisions(quotation);
+  const invoiceRevisions = getRevisions(invoice);
+  const receiptRevisions = getRevisions(receipt);
+  const hasAnyRevisions = quotationRevisions.length > 1 || invoiceRevisions.length > 1 || receiptRevisions.length > 1;
 
   function getArrowState(
     source: DocumentWithMeta | undefined, 
@@ -166,6 +224,39 @@ export function ChainFlowDiagram({
               {/* Arrow */}
               {index < nodes.length - 1 && (
                 <div className="flex flex-col items-center mx-1 sm:mx-2">
+                  {/* Warning Badge on Arrow */}
+                  {index === 0 && hasQtInvWarning && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs mb-1 cursor-help">
+                          <AlertTriangle className="h-3 w-3" />
+                          <span className="hidden sm:inline">ต่าง</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <div className="text-center">
+                          <p className="font-medium">ยอดเงินไม่ตรงกัน</p>
+                          <p className="text-xs">ต่างกัน ฿{formatNumber(qtInvDiff)}</p>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                  {index === 1 && hasInvRecWarning && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs mb-1 cursor-help">
+                          <AlertTriangle className="h-3 w-3" />
+                          <span className="hidden sm:inline">ต่าง</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <div className="text-center">
+                          <p className="font-medium">ยอดเงินไม่ตรงกัน</p>
+                          <p className="text-xs">ต่างกัน ฿{formatNumber(invRecDiff)}</p>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                   <ChevronRight 
                     className={cn(
                       "h-5 w-5 sm:h-6 sm:w-6",
@@ -247,6 +338,104 @@ export function ChainFlowDiagram({
             </div>
           ))}
         </div>
+
+        {/* Amount Difference Warning Section */}
+        {(hasQtInvWarning || hasInvRecWarning) && (
+          <div className="mt-4 mx-2 sm:mx-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-amber-800">แจ้งเตือน: ยอดเงินในเอกสารไม่ตรงกัน</p>
+                <div className="mt-1 text-sm text-amber-700 space-y-1">
+                  {hasQtInvWarning && (
+                    <p>
+                      • QT (฿{formatNumber(qtTotal)}) → INV (฿{formatNumber(invTotal)}) 
+                      <span className="font-medium ml-1">ต่างกัน ฿{formatNumber(qtInvDiff)}</span>
+                    </p>
+                  )}
+                  {hasInvRecWarning && (
+                    <p>
+                      • INV (฿{formatNumber(invTotal)}) → REC (฿{formatNumber(recTotal)}) 
+                      <span className="font-medium ml-1">ต่างกัน ฿{formatNumber(invRecDiff)}</span>
+                    </p>
+                  )}
+                </div>
+                {/* Quick Actions */}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {hasQtInvWarning && quotation && onEditDocument && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs border-amber-300 text-amber-700 hover:bg-amber-100"
+                      onClick={() => onEditDocument(quotation)}
+                    >
+                      <Edit className="h-3 w-3 mr-1" />
+                      แก้ไข QT
+                    </Button>
+                  )}
+                  {hasQtInvWarning && invoice && onEditDocument && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs border-amber-300 text-amber-700 hover:bg-amber-100"
+                      onClick={() => onEditDocument(invoice)}
+                    >
+                      <Edit className="h-3 w-3 mr-1" />
+                      แก้ไข INV
+                    </Button>
+                  )}
+                  {hasInvRecWarning && receipt && onEditDocument && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs border-amber-300 text-amber-700 hover:bg-amber-100"
+                      onClick={() => onEditDocument(receipt)}
+                    >
+                      <Edit className="h-3 w-3 mr-1" />
+                      แก้ไข REC
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Revision History Section */}
+        {hasAnyRevisions && (
+          <div className="mt-4 mx-2 sm:mx-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <History className="h-4 w-4 text-gray-600" />
+              <span className="text-sm font-medium text-gray-700">ประวัติการแก้ไข</span>
+            </div>
+            <div className="space-y-2">
+              {invoiceRevisions.length > 1 && (
+                <RevisionList 
+                  type="invoice" 
+                  revisions={invoiceRevisions} 
+                  onViewDocument={onViewDocument}
+                  documents={documents}
+                />
+              )}
+              {quotationRevisions.length > 1 && (
+                <RevisionList 
+                  type="quotation" 
+                  revisions={quotationRevisions} 
+                  onViewDocument={onViewDocument}
+                  documents={documents}
+                />
+              )}
+              {receiptRevisions.length > 1 && (
+                <RevisionList 
+                  type="receipt" 
+                  revisions={receiptRevisions} 
+                  onViewDocument={onViewDocument}
+                  documents={documents}
+                />
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Chain Summary */}
         <div className="mt-6 pt-4 border-t text-center">
@@ -461,6 +650,51 @@ function ChainSummary({ quotation, invoice, receipt }: ChainSummaryProps) {
       <div className={cn("flex items-center gap-1 text-sm font-medium", status.color)}>
         <StatusIcon className="h-4 w-4" />
         <span>{status.label}</span>
+      </div>
+    </div>
+  );
+}
+
+// Revision List Component
+interface RevisionListProps {
+  type: DocumentType;
+  revisions: RevisionDocument[];
+  onViewDocument?: (doc: DocumentWithMeta) => void;
+  documents: DocumentWithMeta[];
+}
+
+function RevisionList({ type, revisions, onViewDocument, documents }: RevisionListProps) {
+  const typeLabels: Record<DocumentType, string> = {
+    quotation: 'QT',
+    invoice: 'INV',
+    receipt: 'REC',
+  };
+
+  return (
+    <div className="flex items-start gap-2">
+      <span className="text-xs text-gray-500 w-12">{typeLabels[type]}:</span>
+      <div className="flex flex-wrap gap-1">
+        {revisions.map((rev, index) => {
+          const doc = documents.find(d => d.id === rev.id);
+          return (
+            <div key={rev.id} className="flex items-center gap-1">
+              {index > 0 && <ArrowRight className="h-3 w-3 text-gray-400" />}
+              <button
+                className={cn(
+                  "text-xs px-2 py-0.5 rounded-full transition-colors",
+                  rev.isActive 
+                    ? "bg-blue-100 text-blue-700 font-medium" 
+                    : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                )}
+                onClick={() => doc && onViewDocument?.(doc)}
+                disabled={!doc}
+              >
+                {rev.documentNumber.split('-').slice(-2).join('-')}
+                {rev.isActive && " ✓"}
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

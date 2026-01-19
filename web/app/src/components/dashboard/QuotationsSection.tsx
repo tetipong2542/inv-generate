@@ -633,6 +633,15 @@ export function QuotationsSection() {
               documents={chainView.documents}
               onCreateLinked={handleChainCreateLinked}
               onViewPdf={handleChainViewPdf}
+              onViewDocument={(doc) => {
+                // Close chain dialog - view is handled by PDF action
+                setChainView({ open: false, chainId: null, documents: [] });
+              }}
+              onEditDocument={(doc) => {
+                // Close chain dialog and trigger edit
+                setChainView({ open: false, chainId: null, documents: [] });
+                handleEditDocument(doc);
+              }}
             />
           )}
         </DialogContent>
