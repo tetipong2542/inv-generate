@@ -277,12 +277,12 @@ function ChainNode({ node, originalDoc, onViewPdf, onViewDocument }: ChainNodePr
   // Deleted document placeholder
   if (!node.exists && node.deleted) {
     return (
-      <div className="w-24 h-24 sm:w-32 sm:h-28 rounded-lg border-2 border-dashed border-orange-300 bg-orange-50 flex flex-col items-center justify-center p-1 sm:p-2">
+      <div className="w-28 h-28 sm:w-36 sm:h-32 rounded-lg border-2 border-dashed border-orange-300 bg-orange-50 flex flex-col items-center justify-center p-2">
         <div className="relative">
-          <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-orange-400 mb-1" />
+          <Icon className="h-6 w-6 text-orange-400 mb-1" />
           <Trash2 className="h-3 w-3 text-orange-500 absolute -top-1 -right-1" />
         </div>
-        <span className="text-xs text-orange-600 font-medium">{config.label}</span>
+        <span className="text-xs font-medium text-orange-600">{config.label}</span>
         <span className="text-xs text-orange-500 font-mono truncate max-w-full px-1">
           {node.documentNumber?.split('-').slice(-2).join('-') || ''}
         </span>
@@ -294,9 +294,9 @@ function ChainNode({ node, originalDoc, onViewPdf, onViewDocument }: ChainNodePr
   if (!node.exists) {
     // Empty placeholder node
     return (
-      <div className="w-24 h-24 sm:w-32 sm:h-28 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center p-1 sm:p-2">
-        <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-gray-300 mb-1" />
-        <span className="text-xs text-gray-400">{config.label}</span>
+      <div className="w-28 h-28 sm:w-36 sm:h-32 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center p-2">
+        <Icon className="h-6 w-6 text-gray-300 mb-1" />
+        <span className="text-xs font-medium text-gray-400">{config.label}</span>
         <span className="text-xs text-gray-300">ยังไม่มี</span>
       </div>
     );
@@ -307,13 +307,13 @@ function ChainNode({ node, originalDoc, onViewPdf, onViewDocument }: ChainNodePr
   return (
     <div 
       className={cn(
-        "w-24 h-24 sm:w-32 sm:h-28 rounded-lg border-2 flex flex-col items-center justify-between p-1.5 sm:p-2 transition-all hover:shadow-md",
+        "w-28 h-28 sm:w-36 sm:h-32 rounded-lg border-2 flex flex-col items-center justify-between p-2 transition-all hover:shadow-md",
         config.bgColor
       )}
     >
       {/* Header with icon and type */}
       <div className="flex items-center gap-1">
-        <Icon className={cn("h-3 w-3 sm:h-4 sm:w-4", config.color)} />
+        <Icon className={cn("h-4 w-4", config.color)} />
         <span className={cn("text-xs font-medium", config.color)}>
           {node.type === 'quotation' && 'QT'}
           {node.type === 'invoice' && 'INV'}
@@ -326,22 +326,21 @@ function ChainNode({ node, originalDoc, onViewPdf, onViewDocument }: ChainNodePr
         {node.documentNumber?.split('-').slice(-2).join('-') || node.id}
       </div>
 
-      {/* Amount */}
+      {/* Amount - Make it prominent */}
       {node.total !== undefined && (
-        <div className="text-xs sm:text-sm font-medium text-gray-800">
-          {formatNumber(node.total)}
+        <div className="text-sm sm:text-base font-bold text-gray-800">
+          ฿{formatNumber(node.total)}
         </div>
       )}
 
       {/* Status Badge */}
       <div className={cn(
-        "flex items-center gap-0.5 sm:gap-1 text-xs px-1.5 sm:px-2 py-0.5 rounded-full",
+        "flex items-center gap-1 text-xs px-2 py-0.5 rounded-full",
         statusCfg.bgColor,
         statusCfg.color
       )}>
-        <StatusIcon className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-        <span className="hidden sm:inline">{statusCfg.label}</span>
-        <span className="sm:hidden text-xs">{statusCfg.label.slice(0, 4)}</span>
+        <StatusIcon className="h-3 w-3" />
+        <span>{statusCfg.label}</span>
       </div>
 
       {/* Action Buttons */}
@@ -353,10 +352,10 @@ function ChainNode({ node, originalDoc, onViewPdf, onViewDocument }: ChainNodePr
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="h-5 w-5"
+                  className="h-6 w-6"
                   onClick={() => onViewDocument(originalDoc)}
                 >
-                  <Eye className="h-3 w-3" />
+                  <Eye className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>ดูรายละเอียด</TooltipContent>
@@ -440,30 +439,22 @@ function ChainSummary({ quotation, invoice, receipt }: ChainSummaryProps) {
   const status = getChainStatus();
   const StatusIcon = status.icon;
 
-  // Progress percentage
-  const progressPercent = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
-
   return (
     <div className="flex flex-col items-center gap-2">
-      {/* Progress Bar */}
-      <div className="w-full max-w-xs">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-xs text-gray-500">
-            {completedSteps}/{totalSteps} ขั้นตอน
-          </span>
-          <span className="text-xs text-gray-500">
-            {progressPercent}%
-          </span>
-        </div>
-        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-          <div 
+      {/* Progress Dots */}
+      <div className="flex items-center gap-1.5">
+        {Array.from({ length: totalSteps }).map((_, step) => (
+          <div
+            key={step}
             className={cn(
-              "h-full rounded-full transition-all duration-500",
-              progressPercent === 100 ? "bg-green-500" : "bg-blue-500"
+              "w-2.5 h-2.5 rounded-full transition-all",
+              step < completedSteps ? "bg-green-500" : "bg-gray-200"
             )}
-            style={{ width: `${progressPercent}%` }}
           />
-        </div>
+        ))}
+        <span className="text-xs text-gray-500 ml-2">
+          {completedSteps}/{totalSteps} ขั้นตอน
+        </span>
       </div>
 
       {/* Status */}

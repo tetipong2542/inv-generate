@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, Pause, X, FileText, Trash2, Search, FileDown, Pencil, GitBranch, FileCheck, Receipt, Link2 } from 'lucide-react';
+import { Check, Pause, X, FileText, Trash2, Search, FileDown, Pencil, GitBranch, FileCheck, Receipt, Link2, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -540,12 +540,12 @@ export function QuotationsSection() {
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-7 w-7 text-orange-600 hidden sm:flex"
-                            title="ระงับ"
-                            onClick={() => updateStatus(doc.id || '', 'hold')}
-                            disabled={status === 'hold'}
+                            className="h-7 w-7 text-yellow-600 hidden sm:flex"
+                            title="รอดำเนินการ"
+                            onClick={() => updateStatus(doc.id || '', 'pending')}
+                            disabled={status === 'pending'}
                           >
-                            <Pause className="h-4 w-4" />
+                            <Clock className="h-4 w-4" />
                           </Button>
                           <Button
                             size="icon"
