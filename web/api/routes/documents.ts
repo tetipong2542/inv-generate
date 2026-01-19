@@ -559,6 +559,50 @@ app.get('/:id/chain', async (c) => {
       });
     };
 
+    // Helper to find all related documents by traversing relationships
+    const findChainDocuments = (docs: any[], startDoc: any): any[] => {
+      const chainDocs = new Map<string, any>();
+      const visited = new Set<string>();
+      
+      const traverse = (doc: any) => {
+        if (!doc || visited.has(doc.id)) return;
+        visited.add(doc.id);
+        chainDocs.set(doc.id, doc);
+        
+        // Find source document (parent)
+        if (doc.sourceDocumentId) {
+          const sourceDoc = docs.find(d => d.id === doc.sourceDocumentId);
+          if (sourceDoc) traverse(sourceDoc);
+        }
+        
+        // Find linked documents (children) - check linkedDocuments object
+        const linkedInvoiceId = doc.linkedDocuments?.invoiceId;
+        const linkedReceiptId = doc.linkedDocuments?.receiptId;
+        
+        if (linkedInvoiceId && linkedInvoiceId !== 'pending') {
+          const linkedDoc = docs.find(d => d.id === linkedInvoiceId);
+          if (linkedDoc) traverse(linkedDoc);
+        }
+        if (linkedReceiptId && linkedReceiptId !== 'pending') {
+          const linkedDoc = docs.find(d => d.id === linkedReceiptId);
+          if (linkedDoc) traverse(linkedDoc);
+        }
+        
+        // Find documents that reference this document as source
+        const childDocs = docs.filter(d => d.sourceDocumentId === doc.id);
+        childDocs.forEach(traverse);
+        
+        // Find documents with same chainId
+        if (doc.chainId) {
+          const sameChainDocs = docs.filter(d => d.chainId === doc.chainId);
+          sameChainDocs.forEach(traverse);
+        }
+      };
+      
+      traverse(startDoc);
+      return Array.from(chainDocs.values());
+    };
+
     if (USE_REPO) {
       // SQLite mode
       const doc = await documentsRepo.getById(id);
@@ -566,17 +610,12 @@ app.get('/:id/chain', async (c) => {
         return c.json({ success: false, error: 'ไม่พบเอกสาร' }, 404);
       }
 
-      const chainId = doc.chainId;
-      if (!chainId) {
-        return c.json({ 
-          success: true, 
-          data: { chainId: null, documents: [doc] }
-        });
-      }
-
-      // Find all documents with same chainId
+      // Get all documents and find related ones
       const allDocs = await documentsRepo.getAll();
-      const chainDocs = allDocs.filter(d => d.chainId === chainId);
+      const chainDocs = findChainDocuments(allDocs, doc);
+      
+      // Determine chainId from any document in the chain
+      const chainId = chainDocs.find(d => d.chainId)?.chainId || null;
 
       return c.json({ 
         success: true, 
@@ -592,28 +631,21 @@ app.get('/:id/chain', async (c) => {
     }
 
     const doc = await file.json();
-    const chainId = doc.chainId;
+    doc.id = id;
 
-    if (!chainId) {
-      return c.json({ 
-        success: true, 
-        data: { chainId: null, documents: [{ id, ...doc }] }
-      });
-    }
-
-    // Find all documents in this chain
+    // Load all documents
     const files = await readdir(EXAMPLES_DIR);
-    const chainDocs = [];
-
+    const allDocs = [];
     for (const f of files) {
       if (f.endsWith('.json')) {
         const docPath = path.join(EXAMPLES_DIR, f);
         const content = await Bun.file(docPath).json();
-        if (content.chainId === chainId) {
-          chainDocs.push({ id: f.replace('.json', ''), ...content });
-        }
+        allDocs.push({ id: f.replace('.json', ''), ...content });
       }
     }
+
+    const chainDocs = findChainDocuments(allDocs, doc);
+    const chainId = chainDocs.find(d => d.chainId)?.chainId || null;
 
     return c.json({ 
       success: true, 

@@ -140,7 +140,7 @@ export function ChainFlowDiagram({
 
   return (
     <TooltipProvider>
-      <div className="p-4">
+      <div className="p-2 sm:p-4">
         {/* Chain ID Header */}
         {chainId && (
           <div className="text-xs text-gray-400 text-center mb-4">
@@ -148,10 +148,10 @@ export function ChainFlowDiagram({
           </div>
         )}
 
-        {/* Flow Diagram */}
-        <div className="flex items-center justify-center gap-2">
+        {/* Flow Diagram - Horizontal on desktop, can scroll on mobile */}
+        <div className="flex items-center justify-center gap-1 sm:gap-2 overflow-x-auto pb-2">
           {nodes.map((node, index) => (
-            <div key={node.id} className="flex items-center">
+            <div key={node.id} className="flex items-center flex-shrink-0">
               {/* Node */}
               <ChainNode
                 node={node}
@@ -165,10 +165,10 @@ export function ChainFlowDiagram({
 
               {/* Arrow */}
               {index < nodes.length - 1 && (
-                <div className="flex flex-col items-center mx-2">
+                <div className="flex flex-col items-center mx-1 sm:mx-2">
                   <ChevronRight 
                     className={cn(
-                      "h-6 w-6",
+                      "h-5 w-5 sm:h-6 sm:w-6",
                       index === 0 ? getArrowColor(qtToInvState) : getArrowColor(invToRecState)
                     )} 
                   />
@@ -277,9 +277,9 @@ function ChainNode({ node, originalDoc, onViewPdf, onViewDocument }: ChainNodePr
   // Deleted document placeholder
   if (!node.exists && node.deleted) {
     return (
-      <div className="w-32 h-28 rounded-lg border-2 border-dashed border-orange-300 bg-orange-50 flex flex-col items-center justify-center">
+      <div className="w-24 h-24 sm:w-32 sm:h-28 rounded-lg border-2 border-dashed border-orange-300 bg-orange-50 flex flex-col items-center justify-center p-1 sm:p-2">
         <div className="relative">
-          <Icon className="h-6 w-6 text-orange-400 mb-1" />
+          <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-orange-400 mb-1" />
           <Trash2 className="h-3 w-3 text-orange-500 absolute -top-1 -right-1" />
         </div>
         <span className="text-xs text-orange-600 font-medium">{config.label}</span>
@@ -294,8 +294,8 @@ function ChainNode({ node, originalDoc, onViewPdf, onViewDocument }: ChainNodePr
   if (!node.exists) {
     // Empty placeholder node
     return (
-      <div className="w-32 h-28 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center">
-        <Icon className="h-6 w-6 text-gray-300 mb-1" />
+      <div className="w-24 h-24 sm:w-32 sm:h-28 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center p-1 sm:p-2">
+        <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-gray-300 mb-1" />
         <span className="text-xs text-gray-400">{config.label}</span>
         <span className="text-xs text-gray-300">ยังไม่มี</span>
       </div>
@@ -307,13 +307,13 @@ function ChainNode({ node, originalDoc, onViewPdf, onViewDocument }: ChainNodePr
   return (
     <div 
       className={cn(
-        "w-32 h-28 rounded-lg border-2 flex flex-col items-center justify-between p-2 transition-all hover:shadow-md",
+        "w-24 h-24 sm:w-32 sm:h-28 rounded-lg border-2 flex flex-col items-center justify-between p-1.5 sm:p-2 transition-all hover:shadow-md",
         config.bgColor
       )}
     >
       {/* Header with icon and type */}
       <div className="flex items-center gap-1">
-        <Icon className={cn("h-4 w-4", config.color)} />
+        <Icon className={cn("h-3 w-3 sm:h-4 sm:w-4", config.color)} />
         <span className={cn("text-xs font-medium", config.color)}>
           {node.type === 'quotation' && 'QT'}
           {node.type === 'invoice' && 'INV'}
@@ -328,19 +328,20 @@ function ChainNode({ node, originalDoc, onViewPdf, onViewDocument }: ChainNodePr
 
       {/* Amount */}
       {node.total !== undefined && (
-        <div className="text-sm font-medium text-gray-800">
+        <div className="text-xs sm:text-sm font-medium text-gray-800">
           {formatNumber(node.total)}
         </div>
       )}
 
       {/* Status Badge */}
       <div className={cn(
-        "flex items-center gap-1 text-xs px-2 py-0.5 rounded-full",
+        "flex items-center gap-0.5 sm:gap-1 text-xs px-1.5 sm:px-2 py-0.5 rounded-full",
         statusCfg.bgColor,
         statusCfg.color
       )}>
-        <StatusIcon className="h-3 w-3" />
-        <span>{statusCfg.label}</span>
+        <StatusIcon className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+        <span className="hidden sm:inline">{statusCfg.label}</span>
+        <span className="sm:hidden text-xs">{statusCfg.label.slice(0, 4)}</span>
       </div>
 
       {/* Action Buttons */}
@@ -390,12 +391,39 @@ interface ChainSummaryProps {
 }
 
 function ChainSummary({ quotation, invoice, receipt }: ChainSummaryProps) {
+  // Determine what documents exist in this chain
+  const hasQuotation = !!quotation && quotation.status !== 'cancelled';
+  const hasInvoice = !!invoice;
+  const hasReceipt = !!receipt;
+  
+  // Calculate total steps based on chain structure
+  // A chain could be: QT only, QT->INV, QT->INV->REC, or INV only, INV->REC, etc.
+  let totalSteps = 0;
+  let completedSteps = 0;
+  
+  if (quotation || invoice || receipt) {
+    // Determine the expected flow
+    if (quotation) {
+      totalSteps = 3; // QT -> INV -> REC
+      if (hasQuotation) completedSteps++;
+      if (hasInvoice) completedSteps++;
+      if (hasReceipt) completedSteps++;
+    } else if (invoice) {
+      totalSteps = 2; // INV -> REC (started from invoice)
+      if (hasInvoice) completedSteps++;
+      if (hasReceipt) completedSteps++;
+    } else if (receipt) {
+      totalSteps = 1; // REC only
+      completedSteps = 1;
+    }
+  }
+
   const getChainStatus = (): { label: string; color: string; icon: typeof Check } => {
-    if (receipt) {
+    if (hasReceipt) {
       return { label: 'เสร็จสมบูรณ์', color: 'text-green-600', icon: Check };
     }
-    if (invoice) {
-      if (invoice.status === 'paid') {
+    if (hasInvoice) {
+      if (invoice?.status === 'paid') {
         return { label: 'รอออกใบเสร็จ', color: 'text-blue-600', icon: Clock };
       }
       return { label: 'รอชำระเงิน', color: 'text-yellow-600', icon: Clock };
@@ -412,29 +440,30 @@ function ChainSummary({ quotation, invoice, receipt }: ChainSummaryProps) {
   const status = getChainStatus();
   const StatusIcon = status.icon;
 
-  // Count completed steps
-  const completedSteps = [
-    !!quotation && quotation.status !== 'cancelled',
-    !!invoice,
-    !!receipt
-  ].filter(Boolean).length;
+  // Progress percentage
+  const progressPercent = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
 
   return (
     <div className="flex flex-col items-center gap-2">
-      {/* Progress */}
-      <div className="flex items-center gap-1">
-        {[0, 1, 2].map((step) => (
-          <div
-            key={step}
+      {/* Progress Bar */}
+      <div className="w-full max-w-xs">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs text-gray-500">
+            {completedSteps}/{totalSteps} ขั้นตอน
+          </span>
+          <span className="text-xs text-gray-500">
+            {progressPercent}%
+          </span>
+        </div>
+        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div 
             className={cn(
-              "w-2 h-2 rounded-full",
-              step < completedSteps ? "bg-green-500" : "bg-gray-200"
+              "h-full rounded-full transition-all duration-500",
+              progressPercent === 100 ? "bg-green-500" : "bg-blue-500"
             )}
+            style={{ width: `${progressPercent}%` }}
           />
-        ))}
-        <span className="text-xs text-gray-500 ml-2">
-          {completedSteps}/3 ขั้นตอน
-        </span>
+        </div>
       </div>
 
       {/* Status */}
@@ -442,6 +471,9 @@ function ChainSummary({ quotation, invoice, receipt }: ChainSummaryProps) {
         <StatusIcon className="h-4 w-4" />
         <span>{status.label}</span>
       </div>
+    </div>
+  );
+}
     </div>
   );
 }
