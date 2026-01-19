@@ -474,6 +474,3 @@ function ChainSummary({ quotation, invoice, receipt }: ChainSummaryProps) {
     </div>
   );
 }
-    </div>
-  );
-}
