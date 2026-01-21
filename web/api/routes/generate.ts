@@ -369,6 +369,10 @@ app.post('/', async (c) => {
     // Handle auto document number
     let finalDocumentData = { ...documentData };
     
+    if (type === 'receipt' && sourceDocumentNumber && !finalDocumentData.referenceNumber) {
+      finalDocumentData.referenceNumber = sourceDocumentNumber;
+    }
+    
     // Handle multi-tax config
     let taxBreakdown: TaxBreakdown | null = null;
     if (documentData.taxConfig) {
