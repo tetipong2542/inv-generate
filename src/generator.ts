@@ -109,12 +109,10 @@ async function injectDataIntoTemplate(
   if ("paymentMethod" in data) {
     html = html.replace(/\{\{paymentMethod\}\}/g, data.paymentMethod);
   }
-  if ("referenceNumber" in data) {
-    html = html.replace(
-      /\{\{referenceNumber\}\}/g,
-      data.referenceNumber || ""
-    );
-  }
+  html = html.replace(
+    /\{\{referenceNumber\}\}/g,
+    ("referenceNumber" in data && data.referenceNumber) ? data.referenceNumber : "-"
+  );
 
   // Customer information
   html = html.replace(/\{\{customer\.name\}\}/g, customer.name);
