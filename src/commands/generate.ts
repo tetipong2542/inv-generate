@@ -53,9 +53,10 @@ Required Options:
   --customer <path>  Path to customer JSON file (required)
 
 Optional Settings:
-  --output <path>    Custom output PDF path (default: output/{type}-{number}.pdf)
-  --profile <path>   Path to freelancer profile (default: config/freelancer.json)
-  --help            Show this help message
+  --output <path>       Custom output PDF path (default: output/{type}-{number}.pdf)
+  --profile <path>      Path to freelancer profile (default: config/freelancer.json)
+  --from-invoice <path> (Receipt only) Auto-fill referenceNumber from source invoice
+  --help                Show this help message
 
 Examples:
   # Generate invoice with auto-numbering
@@ -64,8 +65,8 @@ Examples:
   # Generate quotation with custom output
   pacioli generate quotation examples/quotation.json --customer customers/demo.json --output custom/quote.pdf
 
-  # Generate receipt with specific profile
-  pacioli generate receipt examples/receipt.json --customer customers/test.json --profile config/freelancer-alt.json
+  # Generate receipt with reference from invoice
+  pacioli generate receipt examples/receipt.json --customer customers/acme.json --from-invoice examples/invoice-INV-202601-001.json
 
 Document Types:
   invoice     - Bill for completed work (includes due date, payment terms)
@@ -89,6 +90,7 @@ function parseGenerateArgs(args: string[]) {
     customerPath?: string;
     outputPath?: string;
     configPath: string;
+    fromInvoicePath?: string;
     help: boolean;
   } = {
     configPath: "config/freelancer.json",
@@ -126,6 +128,9 @@ function parseGenerateArgs(args: string[]) {
     } else if (arg === "--profile" && nextArg) {
       options.configPath = nextArg;
       i++;
+    } else if (arg === "--from-invoice" && nextArg) {
+      options.fromInvoicePath = nextArg;
+      i++;
     }
   }
 
@@ -143,6 +148,7 @@ function resolvePaths(options: ReturnType<typeof parseGenerateArgs>) {
     customerPath: options.customerPath ? join(cwd, options.customerPath) : undefined,
     outputPath: options.outputPath ? join(cwd, options.outputPath) : undefined,
     configPath: join(cwd, options.configPath),
+    fromInvoicePath: options.fromInvoicePath ? join(cwd, options.fromInvoicePath) : undefined,
   };
 }
 
@@ -263,6 +269,18 @@ export async function generateCommand(args: string[]) {
       console.error(`❌ Error: Invalid ${options.type} data:`);
       validation.errors.forEach((err) => console.error(`   - ${err}`));
       process.exit(1);
+    }
+
+    if (options.type === "receipt" && initialPaths.fromInvoicePath) {
+      if (!(await fileExists(initialPaths.fromInvoicePath))) {
+        console.error(`❌ Error: Source invoice not found: ${options.fromInvoicePath}`);
+        process.exit(1);
+      }
+      const sourceInvoice = await readJSON<{ documentNumber: string }>(initialPaths.fromInvoicePath);
+      if (sourceInvoice.documentNumber) {
+        (data as any).referenceNumber = sourceInvoice.documentNumber;
+        console.log(`📎 Reference from invoice: ${sourceInvoice.documentNumber}`);
+      }
     }
 
     // Handle auto-numbering
