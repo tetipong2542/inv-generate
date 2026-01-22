@@ -61,7 +61,7 @@ export const DEFAULT_PROFILES: DocumentProfile[] = [
       grossUp: true,
     },
     defaultPaymentTerms: ['ชำระเต็มจำนวนก่อนเริ่มงาน'],
-    defaultNotes: 'ราคารวมภาษีหัก ณ ที่จ่ายที่ลูกค้ารับผิดชอบแล้ว',
+    defaultNotes: 'ราคารวมภาษีหัก ณ ที่จ่ายแล้ว',
   },
   // ต่างประเทศ
   {

@@ -388,11 +388,33 @@ export function PreviewStep() {
               <span>+{formatNumber(breakdown.grossUpAmount)} บาท</span>
             </div>
           )}
+
+          {document.discount?.enabled && document.discount.value > 0 && (
+            <div className="flex justify-between text-sm text-green-600">
+              <span>ส่วนลด {document.discount.type === 'percent' ? `${document.discount.value}%` : ''}</span>
+              <span>-{formatNumber(
+                document.discount.type === 'percent' 
+                  ? breakdown.subtotal * document.discount.value / 100 
+                  : document.discount.value
+              )} บาท</span>
+            </div>
+          )}
           
           <div className="flex justify-between font-semibold text-lg pt-2 border-t">
             <span>{taxConfig?.grossUp ? 'รับสุทธิ (ตามที่ตั้งไว้)' : 'รวมรับสุทธิ'}</span>
             <span className="text-primary">{formatNumber(breakdown.total)} บาท</span>
           </div>
+
+          {document.partialPayment?.enabled && document.partialPayment.value > 0 && (
+            <div className="flex justify-between text-sm font-medium text-blue-600 bg-blue-50 p-2 rounded -mx-2">
+              <span>💳 งวดนี้ชำระ {document.partialPayment.type === 'percent' ? `${document.partialPayment.value}%` : ''}</span>
+              <span>{formatNumber(
+                document.partialPayment.type === 'percent' 
+                  ? breakdown.total * document.partialPayment.value / 100 
+                  : document.partialPayment.value
+              )} บาท</span>
+            </div>
+          )}
         </div>
 
         {/* Notes */}

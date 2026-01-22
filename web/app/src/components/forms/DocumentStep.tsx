@@ -22,6 +22,7 @@ import type { LineItem, DocumentType, ServicePackage, DocumentProfile, TaxConfig
 
 interface AddItemData {
   description: string;
+  details?: string;
   quantity: number;
   unit: string;
   unitPrice: number;
@@ -120,6 +121,7 @@ export function DocumentStep() {
     service.items.forEach(item => {
       addItem({
         description: item.description,
+        details: item.details || '',
         quantity: item.quantity,
         unit: item.unit,
         unitPrice: item.unitPrice,
@@ -138,6 +140,7 @@ export function DocumentStep() {
       if (itemData) {
         addItem({
           description: itemData.description,
+          details: itemData.details || '',
           quantity: itemData.quantity,
           unit: itemData.unit,
           unitPrice: itemData.unitPrice,
@@ -567,7 +570,7 @@ export function DocumentStep() {
         {/* Discount & Partial Payment */}
         <div className="space-y-4 p-3 sm:p-4 border rounded-lg bg-muted/30">
           <Label className="text-sm font-medium flex items-center gap-2">
-            💰 ส่วนลด & แบ่งชำระ
+            ส่วนลด & แบ่งชำระ
             <span className="text-xs text-muted-foreground font-normal">(ไม่บังคับ)</span>
           </Label>
           
@@ -883,11 +886,33 @@ export function DocumentStep() {
                 <span>+{formatNumber(breakdown.grossUpAmount)} บาท</span>
               </div>
             )}
+
+            {document.discount?.enabled && document.discount.value > 0 && (
+              <div className="flex justify-between text-sm text-green-600">
+                <span>ส่วนลด {document.discount.type === 'percent' ? `${document.discount.value}%` : ''}</span>
+                <span>-{formatNumber(
+                  document.discount.type === 'percent' 
+                    ? breakdown.subtotal * document.discount.value / 100 
+                    : document.discount.value
+                )} บาท</span>
+              </div>
+            )}
             
             <div className="flex justify-between font-semibold text-lg pt-2 border-t">
               <span>{getCurrentTaxConfig().grossUp ? 'รับสุทธิ (ตามที่ตั้งไว้)' : 'รวมรับสุทธิ'}</span>
               <span className="text-primary">{formatNumber(breakdown.total)} บาท</span>
             </div>
+
+            {document.partialPayment?.enabled && document.partialPayment.value > 0 && (
+              <div className="flex justify-between text-sm font-medium text-blue-600 bg-blue-50 p-2 rounded -mx-2">
+                <span>💳 งวดนี้ชำระ {document.partialPayment.type === 'percent' ? `${document.partialPayment.value}%` : ''}</span>
+                <span>{formatNumber(
+                  document.partialPayment.type === 'percent' 
+                    ? breakdown.total * document.partialPayment.value / 100 
+                    : document.partialPayment.value
+                )} บาท</span>
+              </div>
+            )}
           </div>
         )}
 

@@ -99,6 +99,40 @@ function convertToLegacyTax(taxConfig: TaxConfig): { taxRate: number; taxType: '
   return { taxRate: 0, taxType: 'withholding' };
 }
 
+async function getNextDocumentNumberFromDB(type: string): Promise<string> {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  const yearMonth = `${currentYear}${String(currentMonth).padStart(2, '0')}`;
+  
+  const prefixMap: Record<string, string> = {
+    invoice: 'INV',
+    quotation: 'QT',
+    receipt: 'REC',
+  };
+  const prefix = prefixMap[type] || 'DOC';
+  const pattern = `${prefix}-${yearMonth}-`;
+  
+  const allDocs = await documentsRepo.getAll();
+  let maxNumber = 0;
+  
+  for (const doc of allDocs) {
+    const docNum = doc.documentNumber || '';
+    if (docNum.startsWith(pattern)) {
+      const match = docNum.match(new RegExp(`^${pattern}(\\d+)(?:-R\\d+)?$`));
+      if (match && match[1]) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNumber) {
+          maxNumber = num;
+        }
+      }
+    }
+  }
+  
+  const nextNumber = maxNumber + 1;
+  return `${prefix}-${yearMonth}-${String(nextNumber).padStart(3, '0')}`;
+}
+
 // Helper function to get next revision number
 async function getNextRevisionNumber(originalDocNumber: string): Promise<number> {
   try {
@@ -399,7 +433,11 @@ app.post('/', async (c) => {
       finalDocumentData.originalDocumentNumber = originalDocumentNumber;
       finalDocumentData.revisionNumber = revisionNumber;
     } else if (documentData.documentNumber === 'auto') {
-      finalDocumentData.documentNumber = await getNextDocumentNumber(type);
+      if (USE_REPO) {
+        finalDocumentData.documentNumber = await getNextDocumentNumberFromDB(type);
+      } else {
+        finalDocumentData.documentNumber = await getNextDocumentNumber(type);
+      }
     }
 
     // Validate document based on type
@@ -526,7 +564,7 @@ app.post('/preview', async (c) => {
     }
 
     // Load freelancer config
-    let freelancer = null;
+    let freelancer: Awaited<ReturnType<typeof freelancersRepo.getById>> | Record<string, unknown> | null = null;
     if (USE_REPO) {
       const freelancers = await freelancersRepo.getAll();
       if (freelancers.length > 0) {
