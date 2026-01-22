@@ -448,8 +448,12 @@ export function QuotationsSection() {
       };
     });
     
+    // Build lookup maps for O(1) access
+    const chainById = new Map<string, typeof chainResults[0]>();
     const parentToChildren = new Map<string, typeof chainResults>();
+
     chainResults.forEach(chain => {
+      chainById.set(chain.chainId, chain);
       if (chain.parentChainId) {
         if (!parentToChildren.has(chain.parentChainId)) {
           parentToChildren.set(chain.parentChainId, []);
@@ -457,20 +461,19 @@ export function QuotationsSection() {
         parentToChildren.get(chain.parentChainId)!.push(chain);
       }
     });
-    
+
     chainResults.forEach(chain => {
       const children = parentToChildren.get(chain.chainId) || [];
       if (children.length > 0) {
         chain.isLatestInstallment = false;
 
-        // Parent chain: Calculate total paid across ALL children
-        const totalPaidByChildren = children.reduce((sum, child) => sum + child.thisChainPaid, 0);
+        // Parent chain: Calculate total paid = parent's own + ALL children
+        const totalPaid = chain.thisChainPaid + children.reduce((sum, child) => sum + child.thisChainPaid, 0);
         const contractTotal = children[0]?.totalContractAmount || chain.totalContractAmount;
 
-        // If children's total >= contract amount, mark parent as complete
-        if (totalPaidByChildren >= contractTotal) {
+        // If total paid >= contract amount, mark parent and all children as complete
+        if (totalPaid >= contractTotal) {
           chain.isPaymentComplete = true;
-          // Also mark all children as complete
           children.forEach(child => {
             child.isPaymentComplete = true;
           });
@@ -482,12 +485,19 @@ export function QuotationsSection() {
         const maxInstallment = Math.max(...siblings.map(s => s.installmentNumber));
         chain.isLatestInstallment = chain.installmentNumber === maxInstallment;
 
-        // Calculate total paid across ALL sibling installments
-        const totalPaidAcrossAllSiblings = siblings.reduce((sum, s) => sum + s.thisChainPaid, 0);
+        // O(1) lookup for parent chain
+        const parentChain = chainById.get(chain.parentChainId);
+        const parentPaid = parentChain?.thisChainPaid || 0;
+
+        // Calculate total paid = parent + ALL sibling installments
+        const totalPaidAcrossAll = parentPaid + siblings.reduce((sum, s) => sum + s.thisChainPaid, 0);
         const contractTotal = siblings[0]?.totalContractAmount || chain.totalContractAmount;
 
-        // If total across all siblings >= contract amount, mark ALL siblings as complete
-        if (totalPaidAcrossAllSiblings >= contractTotal) {
+        // If total >= contract amount, mark parent and ALL siblings as complete
+        if (totalPaidAcrossAll >= contractTotal) {
+          if (parentChain) {
+            parentChain.isPaymentComplete = true;
+          }
           siblings.forEach(sibling => {
             sibling.isPaymentComplete = true;
           });
