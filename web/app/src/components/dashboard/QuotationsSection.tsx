@@ -394,23 +394,26 @@ export function QuotationsSection() {
       const qt = docs.find(d => d.type === 'quotation');
       const recs = docs.filter(d => d.type === 'receipt');
       
-      const paidToDate = recs.reduce((sum, rec) => sum + (rec.paidAmount ?? calcTotal(rec)), 0);
+      const thisChainPaid = recs.reduce((sum, rec) => sum + (rec.paidAmount ?? calcTotal(rec)), 0);
       
       const primaryDoc = qt || docs[0];
       const installmentData = primaryDoc?.installment;
-      const totalContractAmount = installmentData?.totalContractAmount ?? (qt ? calcTotal(qt) : paidToDate);
+      
+      const masterTotal = installmentData?.totalContractAmount ?? (qt ? calcTotal(qt) : thisChainPaid);
+      const allPaidToDate = installmentData?.paidToDate ?? thisChainPaid;
       
       const isInstallment = !!installmentData?.isInstallment;
       const installmentNumber = installmentData?.installmentNumber ?? 1;
-      const isPaymentComplete = paidToDate >= totalContractAmount;
+      const isPaymentComplete = (allPaidToDate + thisChainPaid) >= masterTotal;
       
       return {
         chainId,
         documents: sortedDocs,
         quotation: qt,
         archivedAt: docs[0]?.archivedAt,
-        paidToDate,
-        totalContractAmount,
+        paidToDate: allPaidToDate + thisChainPaid,
+        thisChainPaid,
+        totalContractAmount: masterTotal,
         isInstallment,
         installmentNumber,
         isPaymentComplete,
@@ -710,9 +713,7 @@ export function QuotationsSection() {
                             </td>
                             <td className="p-2 hidden lg:table-cell"></td>
                             <td className="p-2 text-right text-gray-500">฿{formatNumber(calculateTotal(doc))}</td>
-                            <td className="p-2 hidden md:table-cell text-right text-gray-400">
-                              {doc.type === 'receipt' && doc.paidAmount ? `฿${formatNumber(doc.paidAmount)}` : '-'}
-                            </td>
+                            <td className="p-2 hidden md:table-cell"></td>
                             <td className="p-2"></td>
                             <td className="p-2">
                               <div className="flex gap-1 justify-center">
@@ -762,7 +763,7 @@ export function QuotationsSection() {
                   const hasPdf = !!findPdf(doc);
                   const chainInfo = getChainInfo(doc);
                   const docTotal = calculateTotal(doc);
-                  const paidAmount = doc.paidAmount || (doc.installment?.paidToDate) || (doc.type === 'receipt' ? docTotal : 0);
+                  const paidAmount = doc.type === 'receipt' ? (doc.paidAmount ?? docTotal) : 0;
                   
                   return (
                     <tr key={doc.id} className="border-t hover:bg-gray-50">
