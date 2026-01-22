@@ -544,15 +544,28 @@ app.post('/:id/create-linked', async (c) => {
       // Generate chain ID if not exists
       const chainId = sourceDoc.chainId || `chain-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-      // Calculate total for paidAmount (receipts)
       const subtotal = (sourceDoc.items || []).reduce(
         (sum: number, item: { quantity: number; unitPrice: number }) => sum + item.quantity * item.unitPrice,
         0
       );
-      const taxAmount = subtotal * (sourceDoc.taxRate || 0);
-      let total = sourceDoc.taxType === 'withholding' 
-        ? subtotal - taxAmount 
-        : subtotal + taxAmount;
+      
+      let total = subtotal;
+      if (sourceDoc.taxBreakdown?.total !== undefined) {
+        total = sourceDoc.taxBreakdown.total;
+      } else if (sourceDoc.taxConfig) {
+        const { vat, withholding, grossUp } = sourceDoc.taxConfig;
+        if (grossUp && withholding?.enabled) {
+          total = subtotal / (1 - (withholding.rate || 0));
+        } else if (withholding?.enabled) {
+          total = subtotal - (subtotal * (withholding.rate || 0));
+        }
+        if (vat?.enabled) {
+          total = total + (subtotal * (vat.rate || 0));
+        }
+      } else {
+        const taxAmount = subtotal * (sourceDoc.taxRate || 0);
+        total = sourceDoc.taxType === 'withholding' ? subtotal - taxAmount : subtotal + taxAmount;
+      }
       
       const partialPayment = sourceDoc.partialPayment;
       let actualPaidAmount = total;

@@ -449,8 +449,11 @@ app.post('/', async (c) => {
         baseDocNumber = await getNextDocumentNumber(type);
       }
       
-      if (installment?.isInstallment && installment?.installmentNumber > 1) {
-        const rpSuffix = `-RP${String(installment.installmentNumber).padStart(3, '0')}`;
+      const hasPartialPayment = documentData.partialPayment?.enabled;
+      const installmentNum = installment?.installmentNumber || (hasPartialPayment ? 1 : 0);
+      
+      if (installmentNum >= 1) {
+        const rpSuffix = `-RP${String(installmentNum).padStart(3, '0')}`;
         finalDocumentData.documentNumber = `${baseDocNumber}${rpSuffix}`;
       } else {
         finalDocumentData.documentNumber = baseDocNumber;
