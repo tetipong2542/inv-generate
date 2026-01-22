@@ -15,11 +15,21 @@ const OUTPUT_DIR = path.join(DATA_DIR, 'output');
 // Use repository for data access (supports both JSON and SQLite)
 const USE_REPO = process.env.USE_SQLITE === 'true' || process.env.RAILWAY_ENVIRONMENT;
 
-// GET /api/documents - รายการเอกสารทั้งหมด
+// GET /api/documents - รายการเอกสารทั้งหมด (excludes archived by default)
 app.get('/', async (c) => {
   try {
+    const includeArchived = c.req.query('archived') === 'true';
+    const onlyArchived = c.req.query('archived') === 'only';
+    
     if (USE_REPO) {
-      const documents = await documentsRepo.getAll();
+      let documents = await documentsRepo.getAll();
+      
+      if (onlyArchived) {
+        documents = documents.filter(d => d.archivedAt);
+      } else if (!includeArchived) {
+        documents = documents.filter(d => !d.archivedAt);
+      }
+      
       return c.json({ success: true, data: documents });
     }
     
@@ -607,6 +617,71 @@ app.post('/:id/create-linked', async (c) => {
   } catch (error) {
     console.error('Create linked error:', error);
     return c.json({ success: false, error: 'เกิดข้อผิดพลาดในการเตรียมข้อมูล' }, 500);
+  }
+});
+
+// POST /api/documents/chain/:chainId/archive - Archive ทั้ง chain
+app.post('/chain/:chainId/archive', async (c) => {
+  const chainId = c.req.param('chainId');
+
+  try {
+    if (!USE_REPO) {
+      return c.json({ success: false, error: 'Archive requires SQLite mode' }, 400);
+    }
+
+    const allDocs = await documentsRepo.getAll();
+    const chainDocs = allDocs.filter(d => d.chainId === chainId);
+
+    if (chainDocs.length === 0) {
+      return c.json({ success: false, error: 'ไม่พบเอกสารใน chain นี้' }, 404);
+    }
+
+    const archivedAt = new Date().toISOString();
+    for (const doc of chainDocs) {
+      await documentsRepo.update(doc.id, { archived_at: archivedAt });
+    }
+
+    return c.json({ 
+      success: true, 
+      message: `Archive ${chainDocs.length} เอกสารเรียบร้อย`,
+      data: { chainId, archivedAt, documentCount: chainDocs.length }
+    });
+  } catch (error) {
+    console.error('Archive chain error:', error);
+    return c.json({ success: false, error: 'เกิดข้อผิดพลาดในการ Archive' }, 500);
+  }
+});
+
+// DELETE /api/documents/chain/:chainId - Delete ทั้ง chain (สำหรับ archived)
+app.delete('/chain/:chainId', async (c) => {
+  const chainId = c.req.param('chainId');
+
+  try {
+    if (!USE_REPO) {
+      return c.json({ success: false, error: 'Delete chain requires SQLite mode' }, 400);
+    }
+
+    const allDocs = await documentsRepo.getAll();
+    const chainDocs = allDocs.filter(d => d.chainId === chainId);
+
+    if (chainDocs.length === 0) {
+      return c.json({ success: false, error: 'ไม่พบเอกสารใน chain นี้' }, 404);
+    }
+
+    const deletedIds: string[] = [];
+    for (const doc of chainDocs) {
+      await documentsRepo.delete(doc.id);
+      deletedIds.push(doc.id);
+    }
+
+    return c.json({ 
+      success: true, 
+      message: `ลบ ${deletedIds.length} เอกสารเรียบร้อย`,
+      data: { chainId, deletedIds }
+    });
+  } catch (error) {
+    console.error('Delete chain error:', error);
+    return c.json({ success: false, error: 'เกิดข้อผิดพลาดในการลบ chain' }, 500);
   }
 });
 

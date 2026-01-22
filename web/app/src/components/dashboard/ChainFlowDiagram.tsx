@@ -1,4 +1,4 @@
-import { FileText, FileInput, Receipt, Check, Clock, Pause, X, ChevronRight, FileDown, Plus, Eye, RefreshCw, Trash2, AlertTriangle, Edit, History, ArrowRight } from 'lucide-react';
+import { FileText, FileInput, Receipt, Check, Clock, Pause, X, ChevronRight, FileDown, Plus, Eye, RefreshCw, Trash2, AlertTriangle, Edit, History, ArrowRight, Archive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -40,6 +40,7 @@ interface ChainFlowDiagramProps {
   onViewPdf?: (doc: DocumentWithMeta) => void;
   onViewDocument?: (doc: DocumentWithMeta) => void;
   onEditDocument?: (doc: DocumentWithMeta) => void;
+  onArchiveChain?: (chainId: string) => void;
 }
 
 const statusConfig: Record<DocumentStatus, { label: string; color: string; bgColor: string; icon: typeof Check }> = {
@@ -64,6 +65,7 @@ export function ChainFlowDiagram({
   onViewPdf,
   onViewDocument,
   onEditDocument,
+  onArchiveChain,
 }: ChainFlowDiagramProps) {
   // Build chain structure
   const quotation = documents.find(d => d.type === 'quotation');
@@ -470,6 +472,21 @@ export function ChainFlowDiagram({
             invoice={invoice} 
             receipt={receipt} 
           />
+          
+          {/* Archive Button - Show when chain is complete */}
+          {receipt && chainId && onArchiveChain && (
+            <div className="mt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-gray-600 hover:text-gray-800 hover:bg-gray-100"
+                onClick={() => onArchiveChain(chainId)}
+              >
+                <Archive className="h-4 w-4 mr-2" />
+                Archive ทั้ง Chain
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </TooltipProvider>

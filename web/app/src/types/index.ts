@@ -151,6 +151,7 @@ export interface DocumentWithMeta extends BaseDocument {
   taxBreakdown?: TaxBreakdown;
   discount?: Discount;
   partialPayment?: PartialPayment;
+  archivedAt?: string;
 }
 
 // Dashboard selection state

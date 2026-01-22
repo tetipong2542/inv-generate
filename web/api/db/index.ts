@@ -40,6 +40,7 @@ function initializeTables(db: Database) {
       data TEXT NOT NULL,
       chain_id TEXT,
       source_document_id TEXT,
+      archived_at TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     )
@@ -104,6 +105,11 @@ function initializeTables(db: Database) {
     db.exec(`ALTER TABLE services ADD COLUMN is_active INTEGER DEFAULT 1`);
   } catch (e) { /* column already exists */ }
 
+  // Migration: Add archived_at column to documents table
+  try {
+    db.exec(`ALTER TABLE documents ADD COLUMN archived_at TEXT`);
+  } catch (e) { /* column already exists */ }
+
   // Migration: Recreate services table if it has old schema (unit column should not exist)
   try {
     const cols = db.query(`PRAGMA table_info(services)`).all() as { name: string }[];
@@ -164,6 +170,7 @@ export interface DocumentRow {
   data: string;
   chain_id: string | null;
   source_document_id: string | null;
+  archived_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -210,6 +217,7 @@ export async function updateDocument(id: string, updates: Partial<{
   status: string;
   data: object;
   chain_id: string;
+  archived_at: string | null;
 }>): Promise<void> {
   const db = await getDatabase();
   const sets: string[] = ['updated_at = CURRENT_TIMESTAMP'];
@@ -226,6 +234,10 @@ export async function updateDocument(id: string, updates: Partial<{
   if (updates.chain_id !== undefined) {
     sets.push('chain_id = ?');
     values.push(updates.chain_id);
+  }
+  if (updates.archived_at !== undefined) {
+    sets.push('archived_at = ?');
+    values.push(updates.archived_at);
   }
 
   values.push(id);
@@ -512,6 +524,7 @@ export function documentRowToApi(row: DocumentRow): any {
     status: row.status,
     chainId: row.chain_id,
     sourceDocumentId: row.source_document_id,
+    archivedAt: row.archived_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     ...data,

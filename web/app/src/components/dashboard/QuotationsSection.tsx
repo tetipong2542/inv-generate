@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, Pause, X, FileText, Trash2, Search, FileDown, Pencil, GitBranch, FileCheck, Receipt, Link2, Clock } from 'lucide-react';
+import { Check, Pause, X, FileText, Trash2, Search, FileDown, Pencil, GitBranch, FileCheck, Receipt, Link2, Clock, Archive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -65,11 +65,11 @@ export function QuotationsSection() {
   
   // Filters
   const [statusFilter, setStatusFilter] = useState<DocumentStatus | 'all'>('all');
-  const [typeFilter, setTypeFilter] = useState<DocumentType | 'all'>('all');
+  const [typeFilter, setTypeFilter] = useState<DocumentType | 'all' | 'archived'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   
-  // PDF files from output folder
   const [pdfFiles, setPdfFiles] = useState<OutputFile[]>([]);
+  const [archivedDocuments, setArchivedDocuments] = useState<DocumentWithMeta[]>([]);
   
   // Delete confirmation
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; doc: DocumentWithMeta | null }>({
@@ -88,6 +88,7 @@ export function QuotationsSection() {
   useEffect(() => {
     loadData();
     loadPdfFiles();
+    loadArchivedDocuments();
   }, []);
 
   const loadData = async () => {
@@ -108,6 +109,33 @@ export function QuotationsSection() {
     const response = await get<OutputFile[]>('/output');
     if (response?.success && response.data) {
       setPdfFiles(response.data);
+    }
+  };
+
+  const loadArchivedDocuments = async () => {
+    const response = await get<DocumentWithMeta[]>('/documents?archived=only');
+    if (response?.success && response.data) {
+      setArchivedDocuments(response.data);
+    }
+  };
+
+  const handleArchiveChain = async (chainId: string) => {
+    const response = await post(`/documents/chain/${chainId}/archive`, {});
+    if (response?.success) {
+      loadData();
+      loadArchivedDocuments();
+      setChainView({ open: false, chainId: null, documents: [] });
+    } else {
+      alert(response?.error || 'เกิดข้อผิดพลาดในการ Archive');
+    }
+  };
+
+  const handleDeleteChain = async (chainId: string) => {
+    const response = await del(`/documents/chain/${chainId}`);
+    if (response?.success) {
+      loadArchivedDocuments();
+    } else {
+      alert(response?.error || 'เกิดข้อผิดพลาดในการลบ');
     }
   };
 
@@ -276,21 +304,18 @@ export function QuotationsSection() {
     return customer?.taxId || '';
   };
 
-  // Filter documents - auto-filter by selected customer in Section 2
   const filteredDocuments = useMemo(() => {
+    if (typeFilter === 'archived') return [];
+    
     return documents.filter((doc) => {
-      // Auto-filter by selected customer from Section 2
       if (selection.customerId && doc.customerId !== selection.customerId) {
         return false;
       }
       
-      // Type filter
       if (typeFilter !== 'all' && doc.type !== typeFilter) return false;
       
-      // Status filter
       if (statusFilter !== 'all' && doc.status !== statusFilter) return false;
       
-      // Search filter (document number, customer name, taxId, item descriptions)
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
         const docNumber = (doc.documentNumber || doc.id || '').toLowerCase();
@@ -309,6 +334,29 @@ export function QuotationsSection() {
       return true;
     });
   }, [documents, typeFilter, statusFilter, searchTerm, selection.customerId, customers]);
+
+  const groupedArchivedChains = useMemo(() => {
+    const groups = new Map<string, DocumentWithMeta[]>();
+    archivedDocuments.forEach(doc => {
+      const chainId = doc.chainId || doc.id || 'unknown';
+      if (!groups.has(chainId)) {
+        groups.set(chainId, []);
+      }
+      groups.get(chainId)!.push(doc);
+    });
+    
+    const sortByType = (docs: DocumentWithMeta[]) => {
+      const order = { quotation: 1, invoice: 2, receipt: 3 };
+      return docs.sort((a, b) => (order[a.type!] || 99) - (order[b.type!] || 99));
+    };
+    
+    return Array.from(groups.entries()).map(([chainId, docs]) => ({
+      chainId,
+      documents: sortByType(docs),
+      quotation: docs.find(d => d.type === 'quotation'),
+      archivedAt: docs[0]?.archivedAt,
+    }));
+  }, [archivedDocuments]);
 
   const calculateTotal = (doc: DocumentWithMeta) => {
     // If document has pre-calculated taxBreakdown, use it
@@ -415,6 +463,21 @@ export function QuotationsSection() {
                   </Button>
                 );
               })}
+              <Button
+                size="sm"
+                variant={typeFilter === 'archived' ? 'default' : 'ghost'}
+                className={cn(
+                  "h-7 text-xs gap-1 px-2 flex-shrink-0",
+                  typeFilter === 'archived' ? '' : 'hover:bg-gray-100'
+                )}
+                onClick={() => setTypeFilter('archived')}
+              >
+                <Archive className="w-3 h-3" />
+                <span className="hidden sm:inline">คลัง</span>
+                {archivedDocuments.length > 0 && (
+                  <span className="text-xs text-gray-500">({groupedArchivedChains.length})</span>
+                )}
+              </Button>
             </div>
             
             {/* Status Filter */}
@@ -436,6 +499,80 @@ export function QuotationsSection() {
       </CardHeader>
       
       <CardContent className="p-0">
+        {typeFilter === 'archived' ? (
+          <div className="max-h-80 overflow-auto touch-scroll p-4">
+            {groupedArchivedChains.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                ไม่มีเอกสารในคลัง
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {groupedArchivedChains.map((chain) => {
+                  const qt = chain.quotation;
+                  const customerName = qt ? getCustomerName(qt.customerId) : '-';
+                  const total = qt ? calculateTotal(qt) : 0;
+                  
+                  return (
+                    <div key={chain.chainId} className="border rounded-lg p-3 bg-gray-50">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium text-sm">
+                              {qt?.documentNumber || chain.chainId}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              ({chain.documents.length} เอกสาร)
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {customerName} • ฿{formatNumber(total)}
+                          </div>
+                          <div className="flex gap-1 mt-2 flex-wrap">
+                            {chain.documents.map(doc => {
+                              const tConfig = doc.type ? typeConfig[doc.type] : null;
+                              return (
+                                <button
+                                  key={doc.id}
+                                  onClick={() => openPdf(doc)}
+                                  className={cn(
+                                    "text-xs px-2 py-0.5 rounded flex items-center gap-1",
+                                    tConfig?.bgColor,
+                                    tConfig?.color,
+                                    "hover:opacity-80"
+                                  )}
+                                >
+                                  <FileDown className="h-3 w-3" />
+                                  {tConfig?.shortLabel}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => {
+                            if (confirm(`ลบ Chain ${qt?.documentNumber || chain.chainId} และเอกสารทั้งหมด?`)) {
+                              handleDeleteChain(chain.chainId);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      {chain.archivedAt && (
+                        <div className="text-xs text-gray-400 mt-2">
+                          Archived: {formatDateTimeThai(chain.archivedAt)}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : (
         <div className="max-h-80 overflow-auto touch-scroll">
           <table className="w-full text-sm table-fixed">
             <thead className="bg-gray-50 sticky top-0">
@@ -620,6 +757,7 @@ export function QuotationsSection() {
             </tbody>
           </table>
         </div>
+        )}
       </CardContent>
 
       {/* Delete Confirmation Dialog */}
@@ -663,14 +801,13 @@ export function QuotationsSection() {
               onCreateLinked={handleChainCreateLinked}
               onViewPdf={handleChainViewPdf}
               onViewDocument={(doc) => {
-                // Close chain dialog - view is handled by PDF action
                 setChainView({ open: false, chainId: null, documents: [] });
               }}
               onEditDocument={(doc) => {
-                // Close chain dialog and trigger edit
                 setChainView({ open: false, chainId: null, documents: [] });
                 handleEditDocument(doc);
               }}
+              onArchiveChain={chainView.chainId ? handleArchiveChain : undefined}
             />
           )}
         </DialogContent>
