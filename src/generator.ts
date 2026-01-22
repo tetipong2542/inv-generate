@@ -255,7 +255,7 @@ async function injectDataIntoTemplate(
       const totalContract = installmentData?.totalContractAmount || finalTotal;
       const paidToDate = installmentData?.paidToDate || 0;
       const remainingBeforeThis = totalContract - paidToDate;
-      const remainingAfterThis = remainingBeforeThis - paymentAmount;
+      const remainingAfterThis = Math.round((remainingBeforeThis - paymentAmount) * 100) / 100;
       
       let installmentInfo = '';
       if (installmentData?.isInstallment && paidToDate > 0) {
@@ -361,7 +361,7 @@ async function injectDataIntoTemplate(
       const totalContract = installmentData?.totalContractAmount || finalTotal;
       const paidToDate = installmentData?.paidToDate || 0;
       const remainingBeforeThis = totalContract - paidToDate;
-      const remainingAfterThis = remainingBeforeThis - paymentAmount;
+      const remainingAfterThis = Math.round((remainingBeforeThis - paymentAmount) * 100) / 100;
       
       let installmentInfo = '';
       if (installmentData?.isInstallment && paidToDate > 0) {

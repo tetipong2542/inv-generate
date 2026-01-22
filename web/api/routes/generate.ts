@@ -211,6 +211,30 @@ async function updateOriginalDocumentStatus(docId: string, status: string): Prom
   }
 }
 
+async function updateParentInstallmentStatus(parentChainId: string, status: string): Promise<boolean> {
+  try {
+    if (USE_REPO) {
+      const allDocs = await documentsRepo.getAll();
+      const parentDocs = allDocs.filter(doc => 
+        doc.chainId === parentChainId || 
+        (doc.installment as any)?.parentChainId === parentChainId
+      );
+      
+      for (const doc of parentDocs) {
+        await documentsRepo.update(doc.id!, { 
+          status, 
+          statusUpdatedAt: new Date().toISOString() 
+        });
+      }
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Error updating parent installment status:', error);
+    return false;
+  }
+}
+
 // Helper function to update source document's linkedDocuments (for Document Chain)
 async function updateSourceDocumentLinks(sourceDocId: string, targetType: string, targetDocId: string, chainId?: string): Promise<boolean> {
   try {
@@ -548,6 +572,23 @@ app.post('/', async (c) => {
       // Update source document's linkedDocuments if this is a chain document
       if (sourceDocumentId && chainId) {
         await updateSourceDocumentLinks(sourceDocumentId, type, docId, chainId);
+      }
+      
+      // Check if this is a final installment (remaining = 0) and update parent status
+      if (installment?.isInstallment && installment.parentChainId) {
+        const paymentValue = finalDocumentData.partialPayment?.value || 0;
+        const paymentType = finalDocumentData.partialPayment?.type || 'fixed';
+        const baseAmount = finalDocumentData.partialPayment?.baseAmount || installment.remainingAmount || 0;
+        
+        const paymentAmount = paymentType === 'percent' 
+          ? baseAmount * paymentValue / 100 
+          : paymentValue;
+        
+        const remainingAfterThis = Math.round((installment.remainingAmount - paymentAmount) * 100) / 100;
+        
+        if (remainingAfterThis <= 0) {
+          await updateParentInstallmentStatus(installment.parentChainId, 'paid');
+        }
       }
     } catch (saveError) {
       console.error('Error saving document:', saveError);
