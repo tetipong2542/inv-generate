@@ -293,23 +293,26 @@ export const useFormStore = create<FormStore>((set, get) => ({
     }
 
     set({
-      currentStep: 2, // Go directly to Document step
+      currentStep: 2,
       documentType: docType,
       customer: customer,
       document: {
-        documentNumber: 'auto', // Will generate new revision number
-        issueDate: new Date().toISOString().split('T')[0], // Use today's date
+        documentNumber: 'auto',
+        issueDate: new Date().toISOString().split('T')[0],
         items: doc.items || [],
         taxRate: doc.taxRate ?? 0.03,
         taxType: doc.taxType || 'withholding',
         taxLabel: taxLabel,
         paymentTerms: doc.paymentTerms || [],
         notes: doc.notes || '',
-        // Type-specific fields
         validUntil: doc.validUntil,
         dueDate: doc.dueDate,
         paymentDate: doc.paymentDate,
         paymentMethod: doc.paymentMethod,
+        ...(doc.discount ? { discount: doc.discount } : {}),
+        ...(doc.partialPayment ? { partialPayment: doc.partialPayment } : {}),
+        ...(doc.taxConfig ? { taxConfig: doc.taxConfig } : {}),
+        ...(doc.profileId ? { profileId: doc.profileId } : {}),
       },
       editing: {
         isRevision: true,

@@ -399,12 +399,15 @@ export function QuotationsSection() {
       const primaryDoc = qt || docs[0];
       const installmentData = primaryDoc?.installment;
       
+      const rpMatch = primaryDoc?.documentNumber?.match(/-RP(\d+)$/);
+      const rpNumber = rpMatch ? parseInt(rpMatch[1], 10) : 0;
+      
       const masterTotal = installmentData?.totalContractAmount ?? (qt ? calcTotal(qt) : thisChainPaid);
       const previouslyPaid = installmentData?.paidToDate ?? 0;
       const cumulativePaid = previouslyPaid + thisChainPaid;
       
-      const isInstallment = !!installmentData?.isInstallment;
-      const installmentNumber = installmentData?.installmentNumber ?? 1;
+      const isInstallment = !!installmentData?.isInstallment || rpNumber > 0;
+      const installmentNumber = installmentData?.installmentNumber ?? rpNumber ?? 1;
       const isPaymentComplete = cumulativePaid >= masterTotal;
       const parentChainId = installmentData?.parentChainId || null;
       

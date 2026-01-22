@@ -211,16 +211,29 @@ async function updateOriginalDocumentStatus(docId: string, status: string): Prom
   }
 }
 
-async function updateParentInstallmentStatus(parentChainId: string, status: string): Promise<boolean> {
+async function updateParentInstallmentStatus(parentChainId: string, status: string, documentNumber?: string): Promise<boolean> {
   try {
     if (USE_REPO) {
       const allDocs = await documentsRepo.getAll();
-      const parentDocs = allDocs.filter(doc => 
-        doc.chainId === parentChainId || 
-        (doc.installment as any)?.parentChainId === parentChainId
-      );
       
-      for (const doc of parentDocs) {
+      let docsToUpdate: typeof allDocs = [];
+      
+      if (documentNumber) {
+        const baseDocNumber = documentNumber.replace(/-RP\d+$/, '');
+        docsToUpdate = allDocs.filter(doc => {
+          const docNum = doc.documentNumber || '';
+          return docNum.startsWith(baseDocNumber) && docNum.includes('-RP');
+        });
+      }
+      
+      if (docsToUpdate.length === 0) {
+        docsToUpdate = allDocs.filter(doc => 
+          doc.chainId === parentChainId || 
+          (doc.installment as any)?.parentChainId === parentChainId
+        );
+      }
+      
+      for (const doc of docsToUpdate) {
         await documentsRepo.update(doc.id!, { 
           status, 
           statusUpdatedAt: new Date().toISOString() 
@@ -595,20 +608,28 @@ app.post('/', async (c) => {
         await updateSourceDocumentLinks(sourceDocumentId, type, docId, chainId);
       }
       
-      // Check if this is a final installment (remaining = 0) and update parent status
-      if (installment?.isInstallment && installment.parentChainId) {
+      // Check if this is a final installment (remaining = 0) and update all RP docs status
+      const hasRpSuffix = finalDocumentData.documentNumber?.includes('-RP');
+      const hasPartialPayment = finalDocumentData.partialPayment?.enabled;
+      
+      if (hasRpSuffix && hasPartialPayment) {
         const paymentValue = finalDocumentData.partialPayment?.value || 0;
         const paymentType = finalDocumentData.partialPayment?.type || 'fixed';
-        const baseAmount = finalDocumentData.partialPayment?.baseAmount || installment.remainingAmount || 0;
+        const baseAmount = finalDocumentData.partialPayment?.baseAmount || installment?.remainingAmount || 0;
         
         const paymentAmount = paymentType === 'percent' 
           ? baseAmount * paymentValue / 100 
           : paymentValue;
         
-        const remainingAfterThis = Math.round((installment.remainingAmount - paymentAmount) * 100) / 100;
+        const remainingBeforeThis = installment?.remainingAmount || baseAmount;
+        const remainingAfterThis = Math.round((remainingBeforeThis - paymentAmount) * 100) / 100;
         
         if (remainingAfterThis <= 0) {
-          await updateParentInstallmentStatus(installment.parentChainId, 'paid');
+          await updateParentInstallmentStatus(
+            installment?.parentChainId || chainId || '', 
+            'paid', 
+            finalDocumentData.documentNumber
+          );
         }
       }
     } catch (saveError) {
