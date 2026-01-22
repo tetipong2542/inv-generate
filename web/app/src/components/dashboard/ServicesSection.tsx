@@ -26,6 +26,7 @@ import { cn, formatNumber } from '@/lib/utils';
 
 const emptyItem: LineItem = {
   description: '',
+  details: '',
   quantity: 1,
   unit: 'รายการ',
   unitPrice: 0,
@@ -92,10 +93,10 @@ export function ServicesSection() {
 
   const openEdit = (item: ServicePackage) => {
     setEditingItem(item);
-    // Ensure items array exists and has valid data
     const safeItems = (item.items && Array.isArray(item.items) && item.items.length > 0)
       ? item.items.map(i => ({
           description: i?.description ?? '',
+          details: i?.details ?? '',
           quantity: i?.quantity ?? 1,
           unit: i?.unit ?? 'รายการ',
           unitPrice: i?.unitPrice ?? 0,

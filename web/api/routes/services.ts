@@ -24,11 +24,12 @@ async function ensureDir() {
 // Service interface
 interface ServiceItem {
   id?: string;
-  type: 'item' | 'package';  // single item or package
+  type: 'item' | 'package';
   name: string;
   description: string;
   items: {
     description: string;
+    details?: string;
     quantity: number;
     unit: string;
     unitPrice: number;
