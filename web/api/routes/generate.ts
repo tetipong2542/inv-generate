@@ -505,6 +505,18 @@ app.post('/', async (c) => {
       }, 400);
     }
 
+    // Add installment data to finalDocumentData for PDF generation
+    if (installment?.isInstallment) {
+      finalDocumentData.installment = {
+        isInstallment: true,
+        installmentNumber: installment.installmentNumber || 1,
+        totalContractAmount: installment.totalContractAmount || 0,
+        paidToDate: installment.paidToDate || 0,
+        remainingAmount: installment.remainingAmount || (installment.totalContractAmount || 0) - (installment.paidToDate || 0),
+        parentChainId: installment.parentChainId || null,
+      };
+    }
+
     // Generate PDF - ensure output directory exists
     await mkdir(OUTPUT_DIR, { recursive: true });
     const outputFilename = `${type}-${finalDocumentData.documentNumber}.pdf`;
