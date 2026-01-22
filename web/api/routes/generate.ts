@@ -133,7 +133,33 @@ async function getNextDocumentNumberFromDB(type: string): Promise<string> {
   return `${prefix}-${yearMonth}-${String(nextNumber).padStart(3, '0')}`;
 }
 
-// Helper function to get next revision number
+async function getNextRpNumber(baseDocNumber: string): Promise<number> {
+  try {
+    if (USE_REPO) {
+      const allDocs = await documentsRepo.getAll();
+      let maxRp = 0;
+      
+      for (const doc of allDocs) {
+        const docNum = doc.documentNumber || '';
+        if (docNum.startsWith(baseDocNumber) && docNum.includes('-RP')) {
+          const rpMatch = docNum.match(/-RP(\d+)$/);
+          if (rpMatch) {
+            const rpNum = parseInt(rpMatch[1], 10);
+            if (rpNum > maxRp) {
+              maxRp = rpNum;
+            }
+          }
+        }
+      }
+      
+      return maxRp + 1;
+    }
+    return 1;
+  } catch (error) {
+    return 1;
+  }
+}
+
 async function getNextRevisionNumber(originalDocNumber: string): Promise<number> {
   try {
     if (USE_REPO) {
@@ -497,9 +523,11 @@ app.post('/', async (c) => {
       
       if (!rpSuffix) {
         const hasPartialPayment = documentData.partialPayment?.enabled;
-        const installmentNum = installment?.installmentNumber || (hasPartialPayment ? 1 : 0);
-        if (installmentNum >= 1) {
-          rpSuffix = `-RP${String(installmentNum).padStart(3, '0')}`;
+        if (hasPartialPayment) {
+          const nextRpNumber = await getNextRpNumber(baseDocNumber);
+          rpSuffix = `-RP${String(nextRpNumber).padStart(3, '0')}`;
+        } else if (installment?.installmentNumber) {
+          rpSuffix = `-RP${String(installment.installmentNumber).padStart(3, '0')}`;
         }
       }
       
@@ -615,7 +643,9 @@ app.post('/', async (c) => {
       if (hasRpSuffix && hasPartialPayment) {
         const paymentValue = finalDocumentData.partialPayment?.value || 0;
         const paymentType = finalDocumentData.partialPayment?.type || 'fixed';
-        const baseAmount = finalDocumentData.partialPayment?.baseAmount || installment?.remainingAmount || 0;
+        
+        const docTotal = finalDocumentData.taxBreakdown?.total || taxBreakdown?.total || 0;
+        const baseAmount = finalDocumentData.partialPayment?.baseAmount || installment?.remainingAmount || docTotal;
         
         const paymentAmount = paymentType === 'percent' 
           ? baseAmount * paymentValue / 100 
