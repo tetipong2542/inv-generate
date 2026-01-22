@@ -248,37 +248,49 @@ async function injectDataIntoTemplate(
         ? baseAmount * partialPayment.value / 100 
         : partialPayment.value;
       const paymentLabel = partialPayment.type === 'percent' 
-        ? `งวดนี้ชำระ ${partialPayment.value}%` 
-        : 'งวดนี้ชำระ';
+        ? `${partialPayment.value}%` 
+        : '';
       
-      let remainingInfo = '';
       const totalContract = installmentData?.totalContractAmount || finalTotal;
       const paidToDate = installmentData?.paidToDate || 0;
-      const remainingAfterThis = totalContract - paidToDate - paymentAmount;
+      const remainingBeforeThis = totalContract - paidToDate;
+      const remainingAfterThis = remainingBeforeThis - paymentAmount;
       
-      if (partialPayment.baseAmount || installmentData?.isInstallment) {
-        remainingInfo = `
-          <div class="summary-row" style="color: #666; font-size: 0.9em;">
-            <span>ยอดสัญญา</span>
-            <span class="amount">${formatNumber(totalContract)}</span>
-          </div>
-          <div class="summary-row" style="color: #666; font-size: 0.9em;">
-            <span>ชำระแล้ว</span>
+      let installmentInfo = '';
+      if (installmentData?.isInstallment && paidToDate > 0) {
+        installmentInfo = `
+          <div class="summary-row" style="color: #666; font-size: 0.85em; border-top: 1px dashed #ddd; padding-top: 8px; margin-top: 8px;">
+            <span>ชำระแล้ว (งวดก่อนหน้า)</span>
             <span class="amount">${formatNumber(paidToDate)}</span>
           </div>
-          <div class="summary-row" style="color: #e67e22; font-size: 0.9em;">
+          <div class="summary-row" style="color: #666; font-size: 0.85em;">
+            <span>ยอดคงเหลือก่อนงวดนี้</span>
+            <span class="amount">${formatNumber(remainingBeforeThis)}</span>
+          </div>
+        `;
+      }
+      
+      const mainPaymentRow = `
+        <div class="summary-row" style="font-size: 1.15em; font-weight: bold; color: #2563eb; background: #eff6ff; padding: 10px; margin: 8px -10px; border-radius: 6px;">
+          <span>💰 งวดนี้ชำระ ${paymentLabel}</span>
+          <span class="amount" style="font-size: 1.2em;">${formatNumber(paymentAmount)}</span>
+        </div>
+      `;
+      
+      let remainingRow = '';
+      if (remainingAfterThis > 0) {
+        remainingRow = `
+          <div class="summary-row" style="color: #ea580c; font-size: 0.9em;">
             <span>ยอดคงเหลือหลังงวดนี้</span>
-            <span class="amount">${formatNumber(remainingAfterThis > 0 ? remainingAfterThis : 0)}</span>
+            <span class="amount">${formatNumber(remainingAfterThis)}</span>
           </div>
         `;
       }
       
       html = html.replace(/\{\{partialPaymentRow\}\}/g, `
-        <div class="summary-row highlight">
-          <span>${paymentLabel}</span>
-          <span class="amount">${formatNumber(paymentAmount)}</span>
-        </div>
-        ${remainingInfo}
+        ${installmentInfo}
+        ${mainPaymentRow}
+        ${remainingRow}
       `);
       html = html.replace(/\{\{partialPaymentAmount\}\}/g, formatNumber(paymentAmount));
       amountForThaiText = paymentAmount;
@@ -335,37 +347,49 @@ async function injectDataIntoTemplate(
         ? baseAmount * partialPayment.value / 100 
         : partialPayment.value;
       const paymentLabel = partialPayment.type === 'percent' 
-        ? `งวดนี้ชำระ ${partialPayment.value}%` 
-        : 'งวดนี้ชำระ';
+        ? `${partialPayment.value}%` 
+        : '';
       
-      let remainingInfo = '';
       const totalContract = installmentData?.totalContractAmount || finalTotal;
       const paidToDate = installmentData?.paidToDate || 0;
-      const remainingAfterThis = totalContract - paidToDate - paymentAmount;
+      const remainingBeforeThis = totalContract - paidToDate;
+      const remainingAfterThis = remainingBeforeThis - paymentAmount;
       
-      if (partialPayment.baseAmount || installmentData?.isInstallment) {
-        remainingInfo = `
-          <div class="summary-row" style="color: #666; font-size: 0.9em;">
-            <span>ยอดสัญญา</span>
-            <span class="amount">${formatNumber(totalContract)}</span>
-          </div>
-          <div class="summary-row" style="color: #666; font-size: 0.9em;">
-            <span>ชำระแล้ว</span>
+      let installmentInfo = '';
+      if (installmentData?.isInstallment && paidToDate > 0) {
+        installmentInfo = `
+          <div class="summary-row" style="color: #666; font-size: 0.85em; border-top: 1px dashed #ddd; padding-top: 8px; margin-top: 8px;">
+            <span>ชำระแล้ว (งวดก่อนหน้า)</span>
             <span class="amount">${formatNumber(paidToDate)}</span>
           </div>
-          <div class="summary-row" style="color: #e67e22; font-size: 0.9em;">
+          <div class="summary-row" style="color: #666; font-size: 0.85em;">
+            <span>ยอดคงเหลือก่อนงวดนี้</span>
+            <span class="amount">${formatNumber(remainingBeforeThis)}</span>
+          </div>
+        `;
+      }
+      
+      const mainPaymentRow = `
+        <div class="summary-row" style="font-size: 1.15em; font-weight: bold; color: #2563eb; background: #eff6ff; padding: 10px; margin: 8px -10px; border-radius: 6px;">
+          <span>💰 งวดนี้ชำระ ${paymentLabel}</span>
+          <span class="amount" style="font-size: 1.2em;">${formatNumber(paymentAmount)}</span>
+        </div>
+      `;
+      
+      let remainingRow = '';
+      if (remainingAfterThis > 0) {
+        remainingRow = `
+          <div class="summary-row" style="color: #ea580c; font-size: 0.9em;">
             <span>ยอดคงเหลือหลังงวดนี้</span>
-            <span class="amount">${formatNumber(remainingAfterThis > 0 ? remainingAfterThis : 0)}</span>
+            <span class="amount">${formatNumber(remainingAfterThis)}</span>
           </div>
         `;
       }
       
       html = html.replace(/\{\{partialPaymentRow\}\}/g, `
-        <div class="summary-row highlight">
-          <span>${paymentLabel}</span>
-          <span class="amount">${formatNumber(paymentAmount)}</span>
-        </div>
-        ${remainingInfo}
+        ${installmentInfo}
+        ${mainPaymentRow}
+        ${remainingRow}
       `);
       html = html.replace(/\{\{partialPaymentAmount\}\}/g, formatNumber(paymentAmount));
       amountForThaiText = paymentAmount;
