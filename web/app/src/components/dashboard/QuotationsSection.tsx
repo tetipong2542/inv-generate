@@ -503,10 +503,23 @@ export function QuotationsSection() {
           });
         }
       }
+
+      // Check if there's a newer installment in ACTIVE documents
+      // This prevents showing "+ งวดต่อไป" button when newer installment already exists
+      const parentId = chain.parentChainId || chain.chainId;
+      const hasNewerActiveInstallment = documents.some(doc => {
+        const docInstallment = doc.installment;
+        if (!docInstallment?.isInstallment) return false;
+        const docParentId = docInstallment.parentChainId;
+        return docParentId === parentId && docInstallment.installmentNumber > chain.installmentNumber;
+      });
+      if (hasNewerActiveInstallment) {
+        chain.isLatestInstallment = false;
+      }
     });
-    
+
     return chainResults;
-  }, [archivedDocuments, selection.customerId, searchTerm, customers]);
+  }, [archivedDocuments, documents, selection.customerId, searchTerm, customers]);
 
   const calculateTotal = (doc: DocumentWithMeta) => {
     // If document has pre-calculated taxBreakdown, use it
