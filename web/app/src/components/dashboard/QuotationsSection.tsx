@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, Pause, X, FileText, Trash2, Search, FileDown, Pencil, GitBranch, FileCheck, Receipt, Link2, Clock, Archive, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -338,7 +338,23 @@ export function QuotationsSection() {
 
   const groupedArchivedChains = useMemo(() => {
     const groups = new Map<string, DocumentWithMeta[]>();
-    archivedDocuments.forEach(doc => {
+    
+    const filteredArchived = archivedDocuments.filter(doc => {
+      if (selection.customerId && doc.customerId !== selection.customerId) {
+        return false;
+      }
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        const docNumber = (doc.documentNumber || doc.id || '').toLowerCase();
+        const customerName = getCustomerName(doc.customerId).toLowerCase();
+        if (!docNumber.includes(searchLower) && !customerName.includes(searchLower)) {
+          return false;
+        }
+      }
+      return true;
+    });
+    
+    filteredArchived.forEach(doc => {
       const chainId = doc.chainId || doc.id || 'unknown';
       if (!groups.has(chainId)) {
         groups.set(chainId, []);
@@ -357,7 +373,7 @@ export function QuotationsSection() {
       quotation: docs.find(d => d.type === 'quotation'),
       archivedAt: docs[0]?.archivedAt,
     }));
-  }, [archivedDocuments]);
+  }, [archivedDocuments, selection.customerId, searchTerm, customers]);
 
   const calculateTotal = (doc: DocumentWithMeta) => {
     // If document has pre-calculated taxBreakdown, use it
@@ -501,131 +517,127 @@ export function QuotationsSection() {
       
       <CardContent className="p-0">
         {typeFilter === 'archived' ? (
-          <div className="max-h-80 overflow-auto touch-scroll p-4">
+          <div className="max-h-80 overflow-auto touch-scroll">
             {groupedArchivedChains.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
-                ไม่มีเอกสารในคลัง
+                {selection.customerId ? 'ไม่พบเอกสารในคลังของลูกค้านี้' : 'ไม่มีเอกสารในคลัง'}
               </div>
             ) : (
-              <div className="space-y-2">
-                {groupedArchivedChains.map((chain) => {
-                  const qt = chain.quotation;
-                  const inv = chain.documents.find(d => d.type === 'invoice');
-                  const rec = chain.documents.find(d => d.type === 'receipt');
-                  const customerName = qt ? getCustomerName(qt.customerId) : '-';
-                  const total = qt ? calculateTotal(qt) : 0;
-                  const isExpanded = expandedChains.has(chain.chainId);
-                  const subDocs = chain.documents.filter(d => d.type !== 'quotation');
-                  
-                  return (
-                    <div key={chain.chainId} className="border rounded-lg bg-gray-50 overflow-hidden">
-                      <div 
-                        className="flex items-center gap-2 p-3 cursor-pointer hover:bg-gray-100"
-                        onClick={() => {
-                          const newSet = new Set(expandedChains);
-                          if (isExpanded) {
-                            newSet.delete(chain.chainId);
-                          } else {
-                            newSet.add(chain.chainId);
-                          }
-                          setExpandedChains(newSet);
-                        }}
-                      >
-                        {subDocs.length > 0 ? (
-                          isExpanded ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-500" />
-                        ) : (
-                          <div className="w-4" />
-                        )}
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className={cn("text-xs px-1.5 py-0.5 rounded", typeConfig.quotation.bgColor, typeConfig.quotation.color)}>
-                              QT
-                            </span>
-                            <span className="font-medium text-sm truncate">
-                              {qt?.documentNumber || chain.chainId}
-                            </span>
-                            <span className="text-xs text-gray-400">
-                              ({chain.documents.length} เอกสาร)
-                            </span>
-                          </div>
-                          <div className="text-xs text-gray-500 mt-0.5 truncate">
-                            {customerName} • ฿{formatNumber(total)}
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-1">
-                          {qt && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 w-7 p-0"
-                              onClick={(e) => { e.stopPropagation(); openPdf(qt); }}
-                            >
-                              <FileDown className="h-3.5 w-3.5 text-purple-600" />
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (confirm(`ลบ Chain ${qt?.documentNumber || chain.chainId} และเอกสารทั้งหมด?`)) {
-                                handleDeleteChain(chain.chainId);
+              <table className="w-full text-sm table-fixed">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="text-left p-2 w-8"></th>
+                    <th className="text-left p-2 w-28 sm:w-36">เลขเอกสาร</th>
+                    <th className="text-left p-2 hidden sm:table-cell w-16">ประเภท</th>
+                    <th className="text-left p-2 hidden lg:table-cell w-28">ลูกค้า</th>
+                    <th className="text-right p-2 w-20">ยอดรวม</th>
+                    <th className="text-center p-2 w-20">สถานะ</th>
+                    <th className="text-center p-2 w-16"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groupedArchivedChains.map((chain) => {
+                    const qt = chain.quotation;
+                    const inv = chain.documents.find(d => d.type === 'invoice');
+                    const rec = chain.documents.find(d => d.type === 'receipt');
+                    const customerName = qt ? getCustomerName(qt.customerId) : '-';
+                    const total = qt ? calculateTotal(qt) : 0;
+                    const isExpanded = expandedChains.has(chain.chainId);
+                    const subDocs = chain.documents.filter(d => d.type !== 'quotation');
+                    
+                    return (
+                      <React.Fragment key={chain.chainId}>
+                        <tr 
+                          className="border-t hover:bg-gray-50 cursor-pointer"
+                          onClick={() => {
+                            if (subDocs.length > 0) {
+                              const newSet = new Set(expandedChains);
+                              if (isExpanded) {
+                                newSet.delete(chain.chainId);
+                              } else {
+                                newSet.add(chain.chainId);
                               }
-                            }}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                      
-                      {isExpanded && subDocs.length > 0 && (
-                        <div className="border-t bg-white">
-                          {inv && (
-                            <div className="flex items-center gap-2 px-3 py-2 pl-10 hover:bg-gray-50">
-                              <span className={cn("text-xs px-1.5 py-0.5 rounded", typeConfig.invoice.bgColor, typeConfig.invoice.color)}>
-                                INV
-                              </span>
-                              <span className="text-sm text-gray-700 flex-1 truncate">{inv.documentNumber}</span>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-6 w-6 p-0"
-                                onClick={() => openPdf(inv)}
+                              setExpandedChains(newSet);
+                            }
+                          }}
+                        >
+                          <td className="p-2 text-center">
+                            {subDocs.length > 0 && (
+                              isExpanded ? <ChevronDown className="h-4 w-4 text-gray-400 inline" /> : <ChevronRight className="h-4 w-4 text-gray-400 inline" />
+                            )}
+                          </td>
+                          <td className="p-2">
+                            <div className="font-medium">{qt?.documentNumber || chain.chainId}</div>
+                            <div className="text-xs text-gray-400">{chain.documents.length} เอกสาร</div>
+                          </td>
+                          <td className="p-2 hidden sm:table-cell">
+                            <span className={cn("text-xs px-2 py-1 rounded", typeConfig.quotation.bgColor, typeConfig.quotation.color)}>
+                              ใบเสนอราคา
+                            </span>
+                          </td>
+                          <td className="p-2 hidden lg:table-cell truncate">{customerName}</td>
+                          <td className="p-2 text-right font-medium">฿{formatNumber(total)}</td>
+                          <td className="p-2 text-center">
+                            <span className="text-xs px-2 py-1 rounded bg-gray-200 text-gray-700">
+                              จัดเก็บแล้ว
+                            </span>
+                          </td>
+                          <td className="p-2">
+                            <div className="flex gap-1 justify-center">
+                              {qt && (
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openPdf(qt); }}>
+                                  <FileDown className="h-4 w-4 text-purple-600" />
+                                </Button>
+                              )}
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                className="h-7 w-7 text-red-500 hover:text-red-700"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (confirm(`ลบ Chain ${qt?.documentNumber || chain.chainId} และเอกสารทั้งหมด?`)) {
+                                    handleDeleteChain(chain.chainId);
+                                  }
+                                }}
                               >
-                                <FileDown className="h-3 w-3 text-blue-600" />
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
-                          )}
-                          {rec && (
-                            <div className="flex items-center gap-2 px-3 py-2 pl-10 hover:bg-gray-50">
-                              <span className={cn("text-xs px-1.5 py-0.5 rounded", typeConfig.receipt.bgColor, typeConfig.receipt.color)}>
-                                REC
+                          </td>
+                        </tr>
+                        
+                        {isExpanded && subDocs.map((doc) => (
+                          <tr key={doc.id} className="bg-gray-50/50 border-t border-gray-100">
+                            <td className="p-2"></td>
+                            <td className="p-2 pl-6">
+                              <div className="text-gray-600">{doc.documentNumber}</div>
+                            </td>
+                            <td className="p-2 hidden sm:table-cell">
+                              <span className={cn(
+                                "text-xs px-2 py-1 rounded",
+                                doc.type === 'invoice' && 'bg-blue-100 text-blue-700',
+                                doc.type === 'receipt' && 'bg-green-100 text-green-700'
+                              )}>
+                                {doc.type === 'invoice' ? 'ใบแจ้งหนี้' : 'ใบเสร็จ'}
                               </span>
-                              <span className="text-sm text-gray-700 flex-1 truncate">{rec.documentNumber}</span>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-6 w-6 p-0"
-                                onClick={() => openPdf(rec)}
-                              >
-                                <FileDown className="h-3 w-3 text-green-600" />
-                              </Button>
-                            </div>
-                          )}
-                          {chain.archivedAt && (
-                            <div className="text-xs text-gray-400 px-3 py-1.5 pl-10 border-t bg-gray-50">
-                              Archived: {formatDateTimeThai(chain.archivedAt)}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                            </td>
+                            <td className="p-2 hidden lg:table-cell"></td>
+                            <td className="p-2 text-right text-gray-500">฿{formatNumber(calculateTotal(doc))}</td>
+                            <td className="p-2"></td>
+                            <td className="p-2">
+                              <div className="flex gap-1 justify-center">
+                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => openPdf(doc)}>
+                                  <FileDown className={cn("h-3.5 w-3.5", doc.type === 'invoice' ? 'text-blue-600' : 'text-green-600')} />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
             )}
           </div>
         ) : (
