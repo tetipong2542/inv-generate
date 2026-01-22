@@ -564,6 +564,172 @@ export function DocumentStep() {
           />
         </div>
 
+        {/* Discount & Partial Payment */}
+        <div className="space-y-4 p-3 sm:p-4 border rounded-lg bg-muted/30">
+          <Label className="text-sm font-medium flex items-center gap-2">
+            💰 ส่วนลด & แบ่งชำระ
+            <span className="text-xs text-muted-foreground font-normal">(ไม่บังคับ)</span>
+          </Label>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Discount */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">ส่วนลด</Label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = document.discount;
+                    updateDocument({
+                      discount: current?.enabled
+                        ? { ...current, enabled: false }
+                        : { enabled: true, type: 'percent', value: 0 }
+                    });
+                  }}
+                  className={cn(
+                    "text-xs px-2 py-0.5 rounded-full transition-all",
+                    document.discount?.enabled
+                      ? "bg-green-100 text-green-700"
+                      : "bg-gray-100 text-gray-500"
+                  )}
+                >
+                  {document.discount?.enabled ? '✓ เปิด' : 'ปิด'}
+                </button>
+              </div>
+              {document.discount?.enabled && (
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={document.discount?.value || ''}
+                    onChange={(e) => updateDocument({
+                      discount: { ...document.discount!, value: Number(e.target.value) }
+                    })}
+                    className="h-8 text-sm flex-1"
+                  />
+                  <div className="flex rounded-md border overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => updateDocument({
+                        discount: { ...document.discount!, type: 'percent' }
+                      })}
+                      className={cn(
+                        "px-2 py-1 text-xs transition-all",
+                        document.discount?.type === 'percent'
+                          ? "bg-primary text-white"
+                          : "bg-white text-gray-600 hover:bg-gray-50"
+                      )}
+                    >
+                      %
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateDocument({
+                        discount: { ...document.discount!, type: 'fixed' }
+                      })}
+                      className={cn(
+                        "px-2 py-1 text-xs transition-all",
+                        document.discount?.type === 'fixed'
+                          ? "bg-primary text-white"
+                          : "bg-white text-gray-600 hover:bg-gray-50"
+                      )}
+                    >
+                      ฿
+                    </button>
+                  </div>
+                </div>
+              )}
+              {document.discount?.enabled && document.discount.value > 0 && (
+                <p className="text-xs text-green-600">
+                  ลด {document.discount.type === 'percent'
+                    ? `${document.discount.value}% = ฿${formatNumber(calculateSubtotal() * document.discount.value / 100)}`
+                    : `฿${formatNumber(document.discount.value)}`
+                  }
+                </p>
+              )}
+            </div>
+
+            {/* Partial Payment */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">แบ่งชำระ (งวดนี้)</Label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = document.partialPayment;
+                    updateDocument({
+                      partialPayment: current?.enabled
+                        ? { ...current, enabled: false }
+                        : { enabled: true, type: 'percent', value: 50 }
+                    });
+                  }}
+                  className={cn(
+                    "text-xs px-2 py-0.5 rounded-full transition-all",
+                    document.partialPayment?.enabled
+                      ? "bg-blue-100 text-blue-700"
+                      : "bg-gray-100 text-gray-500"
+                  )}
+                >
+                  {document.partialPayment?.enabled ? '✓ เปิด' : 'ปิด'}
+                </button>
+              </div>
+              {document.partialPayment?.enabled && (
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="50"
+                    value={document.partialPayment?.value || ''}
+                    onChange={(e) => updateDocument({
+                      partialPayment: { ...document.partialPayment!, value: Number(e.target.value) }
+                    })}
+                    className="h-8 text-sm flex-1"
+                  />
+                  <div className="flex rounded-md border overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => updateDocument({
+                        partialPayment: { ...document.partialPayment!, type: 'percent' }
+                      })}
+                      className={cn(
+                        "px-2 py-1 text-xs transition-all",
+                        document.partialPayment?.type === 'percent'
+                          ? "bg-primary text-white"
+                          : "bg-white text-gray-600 hover:bg-gray-50"
+                      )}
+                    >
+                      %
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateDocument({
+                        partialPayment: { ...document.partialPayment!, type: 'fixed' }
+                      })}
+                      className={cn(
+                        "px-2 py-1 text-xs transition-all",
+                        document.partialPayment?.type === 'fixed'
+                          ? "bg-primary text-white"
+                          : "bg-white text-gray-600 hover:bg-gray-50"
+                      )}
+                    >
+                      ฿
+                    </button>
+                  </div>
+                </div>
+              )}
+              {document.partialPayment?.enabled && document.partialPayment.value > 0 && (
+                <p className="text-xs text-blue-600">
+                  งวดนี้ชำระ {document.partialPayment.type === 'percent'
+                    ? `${document.partialPayment.value}%`
+                    : `฿${formatNumber(document.partialPayment.value)}`
+                  }
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Payment Terms - Checkbox Style */}
         <div className="space-y-3 p-3 sm:p-4 border rounded-lg bg-muted/30">
           <Label className="text-sm font-medium">เงื่อนไขการจ่ายเงิน (เลือกได้หลายข้อ)</Label>

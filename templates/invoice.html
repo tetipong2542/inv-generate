@@ -194,6 +194,15 @@
             color: #2c3e50;
         }
 
+        .summary-row.highlight {
+            background: #e8f4fd;
+            padding: 6px 8px;
+            margin: 4px -8px;
+            border-radius: 4px;
+            font-weight: 600;
+            color: #1a73e8;
+        }
+
         .amount {
             font-weight: 600;
             text-align: right;
@@ -353,14 +362,16 @@
                     <span>รวมเป็นเงิน</span>
                     <span class="amount">{{subtotal}}</span>
                 </div>
+                {{discountRow}}
                 <div class="summary-row">
                     <span>{{taxLabel}}</span>
                     <span class="amount">{{taxAmount}}</span>
                 </div>
                 <div class="summary-row total">
-                    <span>รวมทั้งสิ้น</span>
+                    <span>ยอดชำระ</span>
                     <span class="amount">{{total}}</span>
                 </div>
+                {{partialPaymentRow}}
                 <div class="total-in-words">
                     ({{totalInWords}})
                 </div>

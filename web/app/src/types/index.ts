@@ -37,6 +37,22 @@ export interface FreelancerConfig {
   bankInfo: BankInfo;
 }
 
+export type AmountType = 'percent' | 'fixed';
+
+export interface Discount {
+  enabled: boolean;
+  type: AmountType;
+  value: number;
+}
+
+export interface PartialPayment {
+  enabled: boolean;
+  type: AmountType;
+  value: number;
+  installmentNumber?: number;
+  totalInstallments?: number;
+}
+
 export interface BaseDocument {
   documentNumber: string;
   issueDate: string;
@@ -46,6 +62,8 @@ export interface BaseDocument {
   taxLabel: string;
   notes?: string;
   paymentTerms?: string[];
+  discount?: Discount;
+  partialPayment?: PartialPayment;
 }
 
 export interface InvoiceData extends BaseDocument {
@@ -118,22 +136,21 @@ export interface DocumentWithMeta extends BaseDocument {
   paymentDate?: string;
   paymentMethod?: string;
   paidAmount?: number;
-  // Revision tracking
-  originalDocumentNumber?: string;  // e.g., "QT-202601-006" for revision "QT-202601-006-R1"
-  revisionNumber?: number;          // 1, 2, 3...
+  originalDocumentNumber?: string;
+  revisionNumber?: number;
   revisedAt?: string;
-  // Document Chain - link related documents together
-  chainId?: string;                 // Group documents in same chain (e.g., "chain-uuid")
-  sourceDocumentId?: string;        // Which document this was created from (e.g., QT id for INV)
-  sourceDocumentNumber?: string;    // Source document number for display
+  chainId?: string;
+  sourceDocumentId?: string;
+  sourceDocumentNumber?: string;
   linkedDocuments?: {
-    quotationId?: string;           // Reference to quotation
-    invoiceId?: string;             // Reference to invoice  
-    receiptId?: string;             // Reference to receipt
+    quotationId?: string;
+    invoiceId?: string;
+    receiptId?: string;
   };
-  // Tax config for multi-tax support
   taxConfig?: TaxConfig;
   taxBreakdown?: TaxBreakdown;
+  discount?: Discount;
+  partialPayment?: PartialPayment;
 }
 
 // Dashboard selection state
@@ -179,5 +196,5 @@ export interface TaxBreakdown {
 export interface MultiTaxDocument {
   taxConfig: TaxConfig;
   taxBreakdown?: TaxBreakdown;
-  profileId?: string; // อ้างอิง DocumentProfile ที่ใช้
+  profileId?: string;
 }

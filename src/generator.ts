@@ -217,6 +217,48 @@ async function injectDataIntoTemplate(
     
     // Thai text for total
     html = html.replace(/\{\{totalInWords\}\}/g, bahtText(breakdown.total));
+    
+    // Discount section (optional)
+    const discount = (data as any).discount;
+    if (discount?.enabled && discount.value > 0) {
+      const discountAmount = discount.type === 'percent' 
+        ? breakdown.subtotal * discount.value / 100 
+        : discount.value;
+      const discountLabel = discount.type === 'percent' 
+        ? `ส่วนลด ${discount.value}%` 
+        : 'ส่วนลด';
+      html = html.replace(/\{\{discountRow\}\}/g, `
+        <div class="summary-row">
+          <span>${discountLabel}</span>
+          <span class="amount">(${formatNumber(discountAmount)})</span>
+        </div>
+      `);
+      html = html.replace(/\{\{discountAmount\}\}/g, formatNumber(discountAmount));
+    } else {
+      html = html.replace(/\{\{discountRow\}\}/g, '');
+      html = html.replace(/\{\{discountAmount\}\}/g, '');
+    }
+    
+    // Partial payment section (optional)
+    const partialPayment = (data as any).partialPayment;
+    if (partialPayment?.enabled && partialPayment.value > 0) {
+      const paymentAmount = partialPayment.type === 'percent' 
+        ? breakdown.total * partialPayment.value / 100 
+        : partialPayment.value;
+      const paymentLabel = partialPayment.type === 'percent' 
+        ? `งวดนี้ชำระ ${partialPayment.value}%` 
+        : 'งวดนี้ชำระ';
+      html = html.replace(/\{\{partialPaymentRow\}\}/g, `
+        <div class="summary-row highlight">
+          <span>${paymentLabel}</span>
+          <span class="amount">${formatNumber(paymentAmount)}</span>
+        </div>
+      `);
+      html = html.replace(/\{\{partialPaymentAmount\}\}/g, formatNumber(paymentAmount));
+    } else {
+      html = html.replace(/\{\{partialPaymentRow\}\}/g, '');
+      html = html.replace(/\{\{partialPaymentAmount\}\}/g, '');
+    }
   } else {
     // Legacy single-tax calculation
     html = html.replace(/\{\{subtotal\}\}/g, formatNumber(subtotal));
@@ -232,6 +274,48 @@ async function injectDataIntoTemplate(
     
     // Thai text for total
     html = html.replace(/\{\{totalInWords\}\}/g, bahtText(total));
+    
+    // Discount (legacy mode)
+    const discount = (data as any).discount;
+    if (discount?.enabled && discount.value > 0) {
+      const discountAmount = discount.type === 'percent' 
+        ? subtotal * discount.value / 100 
+        : discount.value;
+      const discountLabel = discount.type === 'percent' 
+        ? `ส่วนลด ${discount.value}%` 
+        : 'ส่วนลด';
+      html = html.replace(/\{\{discountRow\}\}/g, `
+        <div class="summary-row">
+          <span>${discountLabel}</span>
+          <span class="amount">(${formatNumber(discountAmount)})</span>
+        </div>
+      `);
+      html = html.replace(/\{\{discountAmount\}\}/g, formatNumber(discountAmount));
+    } else {
+      html = html.replace(/\{\{discountRow\}\}/g, '');
+      html = html.replace(/\{\{discountAmount\}\}/g, '');
+    }
+    
+    // Partial payment (legacy mode)
+    const partialPayment = (data as any).partialPayment;
+    if (partialPayment?.enabled && partialPayment.value > 0) {
+      const paymentAmount = partialPayment.type === 'percent' 
+        ? total * partialPayment.value / 100 
+        : partialPayment.value;
+      const paymentLabel = partialPayment.type === 'percent' 
+        ? `งวดนี้ชำระ ${partialPayment.value}%` 
+        : 'งวดนี้ชำระ';
+      html = html.replace(/\{\{partialPaymentRow\}\}/g, `
+        <div class="summary-row highlight">
+          <span>${paymentLabel}</span>
+          <span class="amount">${formatNumber(paymentAmount)}</span>
+        </div>
+      `);
+      html = html.replace(/\{\{partialPaymentAmount\}\}/g, formatNumber(paymentAmount));
+    } else {
+      html = html.replace(/\{\{partialPaymentRow\}\}/g, '');
+      html = html.replace(/\{\{partialPaymentAmount\}\}/g, '');
+    }
   }
 
   // Notes
