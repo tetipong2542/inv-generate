@@ -47,7 +47,7 @@ export function formatDateTimeThai(isoString: string): string {
     const hours = gmt7Date.getUTCHours().toString().padStart(2, '0');
     const minutes = gmt7Date.getUTCMinutes().toString().padStart(2, '0');
     
-    return `${day} ${months[month]} ${year} ${hours}:${minutes} น.`;
+    return `${day} ${months[month]} ${year} ${hours}:${minutes}`;
   } catch (error) {
     return isoString;
   }
