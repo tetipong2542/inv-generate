@@ -280,6 +280,8 @@ app.post('/', async (c) => {
       chainId,
       sourceDocumentId,
       sourceDocumentNumber,
+      // Installment fields
+      installment,
     } = body;
 
     if (!type || !documentData) {
@@ -440,10 +442,18 @@ app.post('/', async (c) => {
       finalDocumentData.originalDocumentNumber = originalDocumentNumber;
       finalDocumentData.revisionNumber = revisionNumber;
     } else if (documentData.documentNumber === 'auto') {
+      let baseDocNumber: string;
       if (USE_REPO) {
-        finalDocumentData.documentNumber = await getNextDocumentNumberFromDB(type);
+        baseDocNumber = await getNextDocumentNumberFromDB(type);
       } else {
-        finalDocumentData.documentNumber = await getNextDocumentNumber(type);
+        baseDocNumber = await getNextDocumentNumber(type);
+      }
+      
+      if (installment?.isInstallment && installment?.installmentNumber > 1) {
+        const rpSuffix = `-RP${String(installment.installmentNumber).padStart(3, '0')}`;
+        finalDocumentData.documentNumber = `${baseDocNumber}${rpSuffix}`;
+      } else {
+        finalDocumentData.documentNumber = baseDocNumber;
       }
     }
 
@@ -503,6 +513,16 @@ app.post('/', async (c) => {
           chainId,
           sourceDocumentId,
           sourceDocumentNumber,
+        } : {}),
+        // Installment tracking
+        ...(installment?.isInstallment ? {
+          installment: {
+            isInstallment: true,
+            installmentNumber: installment.installmentNumber || 1,
+            totalContractAmount: installment.totalContractAmount || 0,
+            paidToDate: installment.paidToDate || 0,
+            parentChainId: installment.parentChainId || chainId || null,
+          },
         } : {}),
       };
       

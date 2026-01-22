@@ -23,12 +23,24 @@ interface LinkedState {
   } | null;
 }
 
+interface InstallmentState {
+  isInstallment: boolean;
+  installmentNumber: number;
+  totalContractAmount: number;
+  paidToDate: number;
+  parentChainId: string | null;
+  sourceDocument: DocumentWithMeta | null;
+}
+
 interface FormStore extends FormState {
   // Edit/Revision state
   editing: EditingState;
   
   // Linked document state (Document Chain)
   linked: LinkedState;
+  
+  // Installment state (for creating next installment from Archive)
+  installment: InstallmentState;
   
   // Navigation
   setCurrentStep: (step: number) => void;
@@ -57,11 +69,12 @@ interface FormStore extends FormState {
   // Load from linked document (for Document Chain: QT -> INV -> REC)
   loadFromLinkedDocument: (sourceDoc: DocumentWithMeta, targetType: DocumentType, linkedData: Partial<DocumentWithMeta>, customer: Customer | null) => void;
   
-  // Reset
+  loadFromInstallment: (data: { sourceDocument: DocumentWithMeta; installmentNumber: number; totalContractAmount: number; paidToDate: number; parentChainId: string }, customer: Customer | null) => void;
+  
   reset: () => void;
 }
 
-const initialState: FormState & { editing: EditingState; linked: LinkedState } = {
+const initialState: FormState & { editing: EditingState; linked: LinkedState; installment: InstallmentState } = {
   currentStep: 0,
   documentType: 'quotation',
   freelancer: null,
@@ -87,6 +100,14 @@ const initialState: FormState & { editing: EditingState; linked: LinkedState } =
     sourceDocumentNumber: null,
     chainId: null,
     originalData: null,
+  },
+  installment: {
+    isInstallment: false,
+    installmentNumber: 1,
+    totalContractAmount: 0,
+    paidToDate: 0,
+    parentChainId: null,
+    sourceDocument: null,
   },
 };
 
@@ -365,6 +386,54 @@ export const useFormStore = create<FormStore>((set, get) => ({
           discount: sourceDiscount,
           partialPayment: sourcePartialPayment,
         },
+      },
+    });
+  },
+
+  loadFromInstallment: (data, customer) => {
+    const { sourceDocument, installmentNumber, totalContractAmount, paidToDate, parentChainId } = data;
+    const today = new Date().toISOString().split('T')[0];
+    const thirtyDaysLater = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    const profileId = (sourceDocument as any).profileId || null;
+    const remaining = totalContractAmount - paidToDate;
+
+    set({
+      currentStep: 2,
+      documentType: 'quotation',
+      customer: customer,
+      document: {
+        documentNumber: 'auto',
+        issueDate: today,
+        items: sourceDocument.items || [],
+        taxRate: sourceDocument.taxRate ?? 0.03,
+        taxType: sourceDocument.taxType || 'withholding',
+        taxLabel: sourceDocument.taxLabel || 'หักภาษี ณ ที่จ่าย 3%',
+        paymentTerms: sourceDocument.paymentTerms || [],
+        notes: sourceDocument.notes || `งวดที่ ${installmentNumber} | ยอดคงเหลือ: ฿${remaining.toLocaleString()}`,
+        validUntil: thirtyDaysLater,
+        ...(sourceDocument.taxConfig ? { taxConfig: sourceDocument.taxConfig, profileId } : {}),
+        ...(profileId && !sourceDocument.taxConfig ? { profileId } : {}),
+      },
+      editing: {
+        isRevision: false,
+        originalDocumentNumber: null,
+        originalDocumentId: null,
+      },
+      linked: {
+        isLinked: false,
+        sourceDocumentId: null,
+        sourceDocumentNumber: null,
+        chainId: null,
+        originalData: null,
+      },
+      installment: {
+        isInstallment: true,
+        installmentNumber,
+        totalContractAmount,
+        paidToDate,
+        parentChainId,
+        sourceDocument,
       },
     });
   },

@@ -13,6 +13,15 @@ interface LinkedDocumentMode {
   linkedDocData: Partial<DocumentWithMeta> | null;
 }
 
+interface InstallmentMode {
+  isCreatingInstallment: boolean;
+  chainId: string | null;
+  installmentNumber: number;
+  totalContractAmount: number;
+  paidToDate: number;
+  sourceDocument: DocumentWithMeta | null;
+}
+
 interface DashboardState {
   // Data
   freelancers: FreelancerConfig[];
@@ -28,6 +37,9 @@ interface DashboardState {
   
   // Linked document mode (for Document Chain)
   linkedMode: LinkedDocumentMode;
+  
+  // Installment mode (for creating next installment from Archive)
+  installmentMode: InstallmentMode;
   
   // Loading states
   loading: {
@@ -56,6 +68,9 @@ interface DashboardState {
   // Linked document actions (Document Chain)
   startLinkedDocument: (sourceDoc: DocumentWithMeta, targetType: DocumentType, linkedData: Partial<DocumentWithMeta>) => void;
   clearLinkedDocument: () => void;
+  
+  startNextInstallment: (data: { chainId: string; installmentNumber: number; totalContractAmount: number; paidToDate: number; sourceDocument: DocumentWithMeta }) => void;
+  clearInstallment: () => void;
   
   setLoading: (key: keyof DashboardState['loading'], value: boolean) => void;
   
@@ -90,6 +105,15 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     sourceDocument: null,
     targetType: null,
     linkedDocData: null,
+  },
+  
+  installmentMode: {
+    isCreatingInstallment: false,
+    chainId: null,
+    installmentNumber: 1,
+    totalContractAmount: 0,
+    paidToDate: 0,
+    sourceDocument: null,
   },
   
   loading: {
@@ -151,6 +175,30 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   
   clearLinkedDocument: () => set({
     linkedMode: { isCreatingLinked: false, sourceDocument: null, targetType: null, linkedDocData: null },
+  }),
+  
+  startNextInstallment: (data) => set({
+    installmentMode: {
+      isCreatingInstallment: true,
+      chainId: data.chainId,
+      installmentNumber: data.installmentNumber,
+      totalContractAmount: data.totalContractAmount,
+      paidToDate: data.paidToDate,
+      sourceDocument: data.sourceDocument,
+    },
+    editMode: { isEditing: false, originalDocument: null },
+    linkedMode: { isCreatingLinked: false, sourceDocument: null, targetType: null, linkedDocData: null },
+  }),
+  
+  clearInstallment: () => set({
+    installmentMode: {
+      isCreatingInstallment: false,
+      chainId: null,
+      installmentNumber: 1,
+      totalContractAmount: 0,
+      paidToDate: 0,
+      sourceDocument: null,
+    },
   }),
   
   setLoading: (key, value) => set((state) => ({

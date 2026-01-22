@@ -32,7 +32,7 @@ interface Signature {
 }
 
 export function PreviewStep() {
-  const { documentType, freelancer, customer, document, editing, linked, prevStep, reset } = useFormStore();
+  const { documentType, freelancer, customer, document, editing, linked, installment, prevStep, reset } = useFormStore();
   const { loading, error, post, get } = useApi();
   const [result, setResult] = useState<{ filename: string; documentNumber: string } | null>(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -183,6 +183,16 @@ export function PreviewStep() {
       chainId: linked.chainId,
       sourceDocumentId: linked.sourceDocumentId,
       sourceDocumentNumber: linked.sourceDocumentNumber,
+      // Installment info
+      ...(installment.isInstallment ? {
+        installment: {
+          isInstallment: true,
+          installmentNumber: installment.installmentNumber,
+          totalContractAmount: installment.totalContractAmount,
+          paidToDate: installment.paidToDate,
+          parentChainId: installment.parentChainId,
+        },
+      } : {}),
     });
 
     if (response.success && response.data) {

@@ -31,6 +31,7 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
     font-family: 'Noto Sans Thai', 'Inter', sans-serif;
@@ -59,20 +60,21 @@
 
 /* Mobile-specific styles */
 @layer utilities {
+
   /* Safe area for iPhone notch/home indicator */
   .safe-area-pb {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
-  
+
   .safe-area-pt {
     padding-top: env(safe-area-inset-top, 0px);
   }
-  
+
   /* Touch-friendly scrolling for iOS */
   .touch-scroll {
     -webkit-overflow-scrolling: touch;
   }
-  
+
   /* Disable text selection on interactive elements */
   .touch-manipulation {
     touch-action: manipulation;
@@ -82,29 +84,37 @@
 
 /* Prevent overscroll bounce and horizontal scroll on mobile */
 @media (max-width: 768px) {
-  html, body {
+
+  html,
+  body {
     overscroll-behavior: none;
     overflow-x: hidden;
     max-width: 100vw;
   }
-  
+
   /* Larger touch targets on mobile */
-  button, a, [role="button"] {
+  button,
+  a,
+  [role="button"] {
     min-height: 44px;
   }
-  
+
   /* Better input sizing on mobile */
-  input, select, textarea {
-    font-size: 16px; /* Prevents iOS zoom on focus */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+    /* Prevents iOS zoom on focus */
   }
-  
+
   /* Prevent table overflow */
   table {
     table-layout: fixed;
   }
-  
+
   /* Ensure cards don't overflow */
-  .card, [class*="Card"] {
+  .card,
+  [class*="Card"] {
     max-width: 100%;
     overflow-x: hidden;
   }
@@ -118,4 +128,8 @@
 /* Better flex item shrinking */
 .min-w-0 {
   min-width: 0 !important;
+}
+
+button.text-primary-foreground .text-xs.text-gray-500 {
+  color: white;
 }

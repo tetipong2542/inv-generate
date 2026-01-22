@@ -53,6 +53,15 @@ export interface PartialPayment {
   totalInstallments?: number;
 }
 
+export interface InstallmentMeta {
+  isInstallment: boolean;
+  installmentNumber: number;
+  totalContractAmount: number;
+  paidToDate: number;
+  parentChainId?: string;
+  isComplete?: boolean;
+}
+
 export interface BaseDocument {
   documentNumber: string;
   issueDate: string;
@@ -152,6 +161,7 @@ export interface DocumentWithMeta extends BaseDocument {
   discount?: Discount;
   partialPayment?: PartialPayment;
   archivedAt?: string;
+  installment?: InstallmentMeta;
 }
 
 // Dashboard selection state

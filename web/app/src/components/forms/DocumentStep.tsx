@@ -80,7 +80,8 @@ export function DocumentStep() {
     documentType, setDocumentType,
     document, updateDocument, addItem, updateItem, removeItem,
     nextStep, prevStep,
-    linked, freelancer
+    linked, freelancer,
+    installment
   } = useFormStore();
   const { get } = useApi();
   
@@ -290,6 +291,21 @@ export function DocumentStep() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 sm:space-y-6 p-4 sm:p-6 pt-0 sm:pt-0">
+        {/* Installment Info Banner */}
+        {installment.isInstallment && (
+          <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex-1">
+              <div className="font-medium text-green-800">สร้างเอกสารงวดที่ {installment.installmentNumber}</div>
+              <div className="text-sm text-green-600">
+                ยอดชำระแล้ว: ฿{formatNumber(installment.paidToDate)} / ฿{formatNumber(installment.totalContractAmount)}
+                <span className="ml-2 text-green-700 font-medium">
+                  (คงเหลือ: ฿{formatNumber(installment.totalContractAmount - installment.paidToDate)})
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* AI Added Notice */}
         {aiAddedNotice && (
           <div className="flex items-center gap-2 p-3 bg-purple-50 text-purple-800 rounded-lg text-sm animate-fade-in">

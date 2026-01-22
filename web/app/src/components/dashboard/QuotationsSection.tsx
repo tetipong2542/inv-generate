@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, Pause, X, FileText, Trash2, Search, FileDown, Pencil, GitBranch, FileCheck, Receipt, Link2, Clock, Archive, ChevronDown, ChevronRight } from 'lucide-react';
+import { Check, Pause, X, FileText, Trash2, Search, FileDown, Pencil, GitBranch, FileCheck, Receipt, Link2, Clock, Archive, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/dialog';
 import { useApi } from '@/hooks/useApi';
 import { useDashboardStore } from '@/hooks/useDashboardStore';
+import { useFormStore } from '@/hooks/useFormStore';
 import { ChainFlowDiagram } from './ChainFlowDiagram';
 import { NextStepDropdown } from './NextStepDropdown';
 import type { DocumentWithMeta, DocumentStatus, DocumentType } from '@/types';
@@ -62,6 +63,7 @@ export function QuotationsSection() {
   const navigate = useNavigate();
   const { get, patch, del, post } = useApi();
   const { documents, setDocuments, setLoading, customers, selection, startEdit, startLinkedDocument } = useDashboardStore();
+  const { loadFromInstallment } = useFormStore();
   
   // Filters
   const [statusFilter, setStatusFilter] = useState<DocumentStatus | 'all'>('all');
@@ -367,12 +369,53 @@ export function QuotationsSection() {
       return docs.sort((a, b) => (order[a.type!] || 99) - (order[b.type!] || 99));
     };
     
-    return Array.from(groups.entries()).map(([chainId, docs]) => ({
-      chainId,
-      documents: sortByType(docs),
-      quotation: docs.find(d => d.type === 'quotation'),
-      archivedAt: docs[0]?.archivedAt,
-    }));
+    const calcTotal = (doc: DocumentWithMeta) => {
+      if (doc.taxBreakdown?.total !== undefined) return doc.taxBreakdown.total;
+      const subtotal = (doc.items || []).reduce((sum, item) => sum + (item?.quantity ?? 0) * (item?.unitPrice ?? 0), 0);
+      if (doc.taxConfig) {
+        const { vat, withholding, grossUp } = doc.taxConfig;
+        let total = subtotal;
+        if (grossUp && withholding.enabled) {
+          total = subtotal / (1 - withholding.rate);
+        } else if (withholding.enabled) {
+          total = subtotal - (subtotal * withholding.rate);
+        }
+        if (vat.enabled) {
+          total = total + (subtotal * vat.rate);
+        }
+        return total;
+      }
+      const taxAmount = subtotal * (doc.taxRate || 0);
+      return doc.taxType === 'withholding' ? subtotal - taxAmount : subtotal + taxAmount;
+    };
+    
+    return Array.from(groups.entries()).map(([chainId, docs]) => {
+      const sortedDocs = sortByType(docs);
+      const qt = docs.find(d => d.type === 'quotation');
+      const recs = docs.filter(d => d.type === 'receipt');
+      
+      const paidToDate = recs.reduce((sum, rec) => sum + (rec.paidAmount ?? calcTotal(rec)), 0);
+      
+      const primaryDoc = qt || docs[0];
+      const installmentData = primaryDoc?.installment;
+      const totalContractAmount = installmentData?.totalContractAmount ?? (qt ? calcTotal(qt) : paidToDate);
+      
+      const isInstallment = !!installmentData?.isInstallment;
+      const installmentNumber = installmentData?.installmentNumber ?? 1;
+      const isPaymentComplete = paidToDate >= totalContractAmount;
+      
+      return {
+        chainId,
+        documents: sortedDocs,
+        quotation: qt,
+        archivedAt: docs[0]?.archivedAt,
+        paidToDate,
+        totalContractAmount,
+        isInstallment,
+        installmentNumber,
+        isPaymentComplete,
+      };
+    });
   }, [archivedDocuments, selection.customerId, searchTerm, customers]);
 
   const calculateTotal = (doc: DocumentWithMeta) => {
@@ -528,9 +571,10 @@ export function QuotationsSection() {
                   <tr>
                     <th className="text-left p-2 w-8"></th>
                     <th className="text-left p-2 w-28 sm:w-36">เลขเอกสาร</th>
-                    <th className="text-left p-2 hidden sm:table-cell w-16">ประเภท</th>
+                    <th className="text-left p-2 hidden sm:table-cell w-20">ประเภท</th>
                     <th className="text-left p-2 hidden lg:table-cell w-28">ลูกค้า</th>
                     <th className="text-right p-2 w-20">ยอดรวม</th>
+                    <th className="text-right p-2 hidden md:table-cell w-20">จ่ายจริง</th>
                     <th className="text-center p-2 w-20">สถานะ</th>
                     <th className="text-center p-2 w-16"></th>
                   </tr>
@@ -542,17 +586,26 @@ export function QuotationsSection() {
                     const rec = chain.documents.find(d => d.type === 'receipt');
                     const primaryDoc = qt || inv || rec || chain.documents[0];
                     const customerName = primaryDoc ? getCustomerName(primaryDoc.customerId) : '-';
-                    const displayTotal = rec ? calculateTotal(rec) : inv ? calculateTotal(inv) : qt ? calculateTotal(qt) : 0;
+                    const displayTotal = chain.totalContractAmount;
                     const isExpanded = expandedChains.has(chain.chainId);
                     const subDocs = chain.documents.filter(d => d.id !== primaryDoc?.id);
                     const docNumber = primaryDoc?.documentNumber || 'ไม่ระบุ';
                     const docType = primaryDoc?.type || 'quotation';
                     const docTypeConfig = typeConfig[docType];
                     
+                    const typeLabel = chain.isInstallment 
+                      ? `${docTypeConfig.label} (งวด ${chain.installmentNumber})`
+                      : docTypeConfig.label;
+                    
+                    const isIncomplete = !chain.isPaymentComplete && chain.paidToDate > 0;
+                    
                     return (
                       <React.Fragment key={chain.chainId}>
                         <tr 
-                          className="border-t hover:bg-gray-50 cursor-pointer"
+                          className={cn(
+                            "border-t cursor-pointer",
+                            isIncomplete ? "bg-red-50 hover:bg-red-100" : "hover:bg-gray-50"
+                          )}
                           onClick={() => {
                             if (subDocs.length > 0) {
                               const newSet = new Set(expandedChains);
@@ -576,18 +629,49 @@ export function QuotationsSection() {
                           </td>
                           <td className="p-2 hidden sm:table-cell">
                             <span className={cn("text-xs px-2 py-1 rounded", docTypeConfig.bgColor, docTypeConfig.color)}>
-                              {docTypeConfig.label}
+                              {typeLabel}
                             </span>
                           </td>
                           <td className="p-2 hidden lg:table-cell truncate">{customerName}</td>
                           <td className="p-2 text-right font-medium">฿{formatNumber(displayTotal)}</td>
+                          <td className={cn(
+                            "p-2 text-right hidden md:table-cell",
+                            isIncomplete ? "text-red-600 font-medium" : "text-gray-500"
+                          )}>
+                            ฿{formatNumber(chain.paidToDate)}
+                          </td>
                           <td className="p-2 text-center">
-                            <span className="text-xs px-2 py-1 rounded bg-gray-200 text-gray-700">
-                              จัดเก็บแล้ว
+                            <span className={cn(
+                              "text-xs px-2 py-1 rounded",
+                              chain.isPaymentComplete ? "bg-green-100 text-green-700" : isIncomplete ? "bg-red-100 text-red-700" : "bg-gray-200 text-gray-700"
+                            )}>
+                              {chain.isPaymentComplete ? 'ชำระครบ' : isIncomplete ? 'ค้างชำระ' : 'จัดเก็บ'}
                             </span>
                           </td>
                           <td className="p-2">
                             <div className="flex gap-1 justify-center">
+                              {!chain.isPaymentComplete && primaryDoc && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline" 
+                                  className="h-7 text-xs gap-1 text-green-600 border-green-300 hover:bg-green-50"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const customer = customers.find(c => c.id === primaryDoc.customerId) || null;
+                                    loadFromInstallment({
+                                      sourceDocument: primaryDoc,
+                                      installmentNumber: chain.installmentNumber + 1,
+                                      totalContractAmount: chain.totalContractAmount,
+                                      paidToDate: chain.paidToDate,
+                                      parentChainId: chain.chainId,
+                                    }, customer);
+                                    navigate('/create');
+                                  }}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                  <span className="hidden sm:inline">งวดต่อไป</span>
+                                </Button>
+                              )}
                               {primaryDoc && (
                                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openPdf(primaryDoc); }}>
                                   <FileDown className={cn("h-4 w-4", docTypeConfig.color)} />
@@ -626,6 +710,9 @@ export function QuotationsSection() {
                             </td>
                             <td className="p-2 hidden lg:table-cell"></td>
                             <td className="p-2 text-right text-gray-500">฿{formatNumber(calculateTotal(doc))}</td>
+                            <td className="p-2 hidden md:table-cell text-right text-gray-400">
+                              {doc.type === 'receipt' && doc.paidAmount ? `฿${formatNumber(doc.paidAmount)}` : '-'}
+                            </td>
                             <td className="p-2"></td>
                             <td className="p-2">
                               <div className="flex gap-1 justify-center">
@@ -654,6 +741,7 @@ export function QuotationsSection() {
                 <th className="text-left p-2 hidden lg:table-cell w-28">ลูกค้า</th>
                 <th className="text-left p-2 hidden md:table-cell w-20">วันที่</th>
                 <th className="text-right p-2 w-20">ยอดรวม</th>
+                <th className="text-right p-2 hidden lg:table-cell w-20">จ่ายจริง</th>
                 <th className="text-center p-2 hidden sm:table-cell w-16">สถานะ</th>
                 <th className="text-center p-2 hidden md:table-cell w-20">Next</th>
                 <th className="text-center p-2 w-16 sm:w-24"></th>
@@ -662,7 +750,7 @@ export function QuotationsSection() {
             <tbody>
               {filteredDocuments.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-8 text-gray-500">
+                  <td colSpan={9} className="text-center py-8 text-gray-500">
                     {selection.customerId ? 'ไม่พบเอกสารของลูกค้านี้' : 'ไม่พบเอกสาร'}
                   </td>
                 </tr>
@@ -673,6 +761,8 @@ export function QuotationsSection() {
                   const customerName = getCustomerName(doc.customerId);
                   const hasPdf = !!findPdf(doc);
                   const chainInfo = getChainInfo(doc);
+                  const docTotal = calculateTotal(doc);
+                  const paidAmount = doc.paidAmount || (doc.installment?.paidToDate) || (doc.type === 'receipt' ? docTotal : 0);
                   
                   return (
                     <tr key={doc.id} className="border-t hover:bg-gray-50">
@@ -725,7 +815,19 @@ export function QuotationsSection() {
                         }
                       </td>
                       <td className="p-2 text-right font-medium">
-                        {formatNumber(calculateTotal(doc))}
+                        {formatNumber(docTotal)}
+                      </td>
+                      <td className="p-2 text-right hidden lg:table-cell">
+                        {paidAmount > 0 ? (
+                          <span className={cn(
+                            "text-sm",
+                            paidAmount < docTotal ? "text-orange-600" : "text-green-600"
+                          )}>
+                            {formatNumber(paidAmount)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
                       </td>
                       <td className="p-2 text-center hidden sm:table-cell">
                         <span
