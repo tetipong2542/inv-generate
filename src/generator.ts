@@ -128,13 +128,13 @@ async function injectDataIntoTemplate(
   const itemsHTML = data.items
     .map((item, index) => {
       const lineTotal = item.quantity * item.unitPrice;
-      const fullDescription = item.details 
-        ? `${item.description}\n${item.details}`
-        : item.description;
+      const descriptionHtml = item.details 
+        ? `<span class="item-main"><strong>${index + 1}. ${item.description}</strong></span><br><span class="item-details">${item.details}</span>`
+        : `<span class="item-main"><strong>${index + 1}. ${item.description}</strong></span>`;
       return `
         <tr>
           <td>${index + 1}</td>
-          <td>${fullDescription}</td>
+          <td class="description-cell">${descriptionHtml}</td>
           <td class="text-center">${item.quantity} ${item.unit}</td>
           <td class="text-right">${formatNumber(item.unitPrice)}</td>
           <td class="text-right">${formatNumber(lineTotal)}</td>
@@ -215,11 +215,9 @@ async function injectDataIntoTemplate(
     // Total
     html = html.replace(/\{\{total\}\}/g, formatNumber(breakdown.total));
     
-    // Thai text for total
-    html = html.replace(/\{\{totalInWords\}\}/g, bahtText(breakdown.total));
-    
     // Discount section (optional)
     const discount = (data as any).discount;
+    let finalTotal = breakdown.total;
     if (discount?.enabled && discount.value > 0) {
       const discountAmount = discount.type === 'percent' 
         ? breakdown.subtotal * discount.value / 100 
@@ -234,6 +232,7 @@ async function injectDataIntoTemplate(
         </div>
       `);
       html = html.replace(/\{\{discountAmount\}\}/g, formatNumber(discountAmount));
+      finalTotal = finalTotal - discountAmount;
     } else {
       html = html.replace(/\{\{discountRow\}\}/g, '');
       html = html.replace(/\{\{discountAmount\}\}/g, '');
@@ -241,9 +240,10 @@ async function injectDataIntoTemplate(
     
     // Partial payment section (optional)
     const partialPayment = (data as any).partialPayment;
+    let amountForThaiText = finalTotal;
     if (partialPayment?.enabled && partialPayment.value > 0) {
       const paymentAmount = partialPayment.type === 'percent' 
-        ? breakdown.total * partialPayment.value / 100 
+        ? finalTotal * partialPayment.value / 100 
         : partialPayment.value;
       const paymentLabel = partialPayment.type === 'percent' 
         ? `งวดนี้ชำระ ${partialPayment.value}%` 
@@ -255,10 +255,14 @@ async function injectDataIntoTemplate(
         </div>
       `);
       html = html.replace(/\{\{partialPaymentAmount\}\}/g, formatNumber(paymentAmount));
+      amountForThaiText = paymentAmount;
     } else {
       html = html.replace(/\{\{partialPaymentRow\}\}/g, '');
       html = html.replace(/\{\{partialPaymentAmount\}\}/g, '');
     }
+    
+    // Thai text for amount (partial payment amount if enabled, otherwise total)
+    html = html.replace(/\{\{totalInWords\}\}/g, bahtText(amountForThaiText));
   } else {
     // Legacy single-tax calculation
     html = html.replace(/\{\{subtotal\}\}/g, formatNumber(subtotal));
@@ -272,11 +276,9 @@ async function injectDataIntoTemplate(
     html = html.replace(/\{\{taxAmount\}\}/g, taxDisplay);
     html = html.replace(/\{\{total\}\}/g, formatNumber(total));
     
-    // Thai text for total
-    html = html.replace(/\{\{totalInWords\}\}/g, bahtText(total));
-    
     // Discount (legacy mode)
     const discount = (data as any).discount;
+    let finalTotal = total;
     if (discount?.enabled && discount.value > 0) {
       const discountAmount = discount.type === 'percent' 
         ? subtotal * discount.value / 100 
@@ -291,6 +293,7 @@ async function injectDataIntoTemplate(
         </div>
       `);
       html = html.replace(/\{\{discountAmount\}\}/g, formatNumber(discountAmount));
+      finalTotal = finalTotal - discountAmount;
     } else {
       html = html.replace(/\{\{discountRow\}\}/g, '');
       html = html.replace(/\{\{discountAmount\}\}/g, '');
@@ -298,9 +301,10 @@ async function injectDataIntoTemplate(
     
     // Partial payment (legacy mode)
     const partialPayment = (data as any).partialPayment;
+    let amountForThaiText = finalTotal;
     if (partialPayment?.enabled && partialPayment.value > 0) {
       const paymentAmount = partialPayment.type === 'percent' 
-        ? total * partialPayment.value / 100 
+        ? finalTotal * partialPayment.value / 100 
         : partialPayment.value;
       const paymentLabel = partialPayment.type === 'percent' 
         ? `งวดนี้ชำระ ${partialPayment.value}%` 
@@ -312,10 +316,14 @@ async function injectDataIntoTemplate(
         </div>
       `);
       html = html.replace(/\{\{partialPaymentAmount\}\}/g, formatNumber(paymentAmount));
+      amountForThaiText = paymentAmount;
     } else {
       html = html.replace(/\{\{partialPaymentRow\}\}/g, '');
       html = html.replace(/\{\{partialPaymentAmount\}\}/g, '');
     }
+    
+    // Thai text for amount (partial payment amount if enabled, otherwise total)
+    html = html.replace(/\{\{totalInWords\}\}/g, bahtText(amountForThaiText));
   }
 
   // Notes
