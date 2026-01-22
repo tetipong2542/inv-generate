@@ -76,6 +76,10 @@ export function ChainFlowDiagram({
   const deletedInvoice = (quotation as any)?.deletedLinkedDocuments?.invoice as DeletedDocument | undefined;
   const deletedReceipt = (invoice as any)?.deletedLinkedDocuments?.receipt as DeletedDocument | undefined;
 
+  const isInstallmentChain = documents.some(d => d.documentNumber?.includes('-RP'));
+  const allInstallmentsPaid = isInstallmentChain && 
+    documents.filter(d => d.documentNumber?.includes('-RP')).every(d => d.status === 'paid');
+  
   // Build node data
   const nodes: ChainDocument[] = [
     {
@@ -474,7 +478,7 @@ export function ChainFlowDiagram({
           />
           
           {/* Archive Button - Show when chain is complete */}
-          {receipt && chainId && onArchiveChain && (
+          {(receipt || allInstallmentsPaid) && chainId && onArchiveChain && (
             <div className="mt-4">
               <Button
                 variant="outline"

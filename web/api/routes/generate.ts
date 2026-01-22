@@ -119,7 +119,8 @@ async function getNextDocumentNumberFromDB(type: string): Promise<string> {
   for (const doc of allDocs) {
     const docNum = doc.documentNumber || '';
     if (docNum.startsWith(pattern)) {
-      const match = docNum.match(new RegExp(`^${pattern}(\\d+)(?:-R\\d+)?$`));
+      // Match both -R1 (revision) and -RP001 (partial payment) suffixes
+      const match = docNum.match(new RegExp(`^${pattern}(\\d+)(?:-R(?:P)?\\d+)?$`));
       if (match && match[1]) {
         const num = parseInt(match[1], 10);
         if (num > maxNumber) {
@@ -636,25 +637,27 @@ app.post('/', async (c) => {
         await updateSourceDocumentLinks(sourceDocumentId, type, docId, chainId);
       }
       
-      // Check if this is a final installment (remaining = 0) and update all RP docs status
       const hasRpSuffix = finalDocumentData.documentNumber?.includes('-RP');
-      const hasPartialPayment = finalDocumentData.partialPayment?.enabled;
+      const isInstallmentDoc = hasRpSuffix || installment?.isInstallment || finalDocumentData.partialPayment?.enabled;
       
-      if (hasRpSuffix && hasPartialPayment) {
+      if (isInstallmentDoc) {
         const paymentValue = finalDocumentData.partialPayment?.value || 0;
         const paymentType = finalDocumentData.partialPayment?.type || 'fixed';
         
         const docTotal = finalDocumentData.taxBreakdown?.total || taxBreakdown?.total || 0;
         const baseAmount = finalDocumentData.partialPayment?.baseAmount || installment?.remainingAmount || docTotal;
         
-        const paymentAmount = paymentType === 'percent' 
-          ? baseAmount * paymentValue / 100 
-          : paymentValue;
+        let paymentAmount: number;
+        if (paymentType === 'percent') {
+          paymentAmount = paymentValue === 100 ? baseAmount : baseAmount * paymentValue / 100;
+        } else {
+          paymentAmount = paymentValue || docTotal;
+        }
         
         const remainingBeforeThis = installment?.remainingAmount || baseAmount;
         const remainingAfterThis = Math.round((remainingBeforeThis - paymentAmount) * 100) / 100;
         
-        if (remainingAfterThis <= 0) {
+        if (remainingAfterThis <= 0 || paymentValue === 100) {
           await updateParentInstallmentStatus(
             installment?.parentChainId || chainId || '', 
             'paid', 
