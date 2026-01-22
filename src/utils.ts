@@ -4,6 +4,7 @@
 
 export interface LineItem {
   description: string;
+  details?: string;
   quantity: number;
   unit: string;
   unitPrice: number;

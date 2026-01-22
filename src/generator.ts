@@ -128,10 +128,13 @@ async function injectDataIntoTemplate(
   const itemsHTML = data.items
     .map((item, index) => {
       const lineTotal = item.quantity * item.unitPrice;
+      const fullDescription = item.details 
+        ? `${item.description}\n${item.details}`
+        : item.description;
       return `
         <tr>
           <td>${index + 1}</td>
-          <td>${item.description}</td>
+          <td>${fullDescription}</td>
           <td class="text-center">${item.quantity} ${item.unit}</td>
           <td class="text-right">${formatNumber(item.unitPrice)}</td>
           <td class="text-right">${formatNumber(lineTotal)}</td>

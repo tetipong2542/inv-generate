@@ -432,49 +432,58 @@ export function ServicesSection() {
                 )}
               </div>
               
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {(formData.items || []).map((item, index) => (
-                  <div key={index} className="flex gap-2 items-start">
-                    <div className="flex-1">
-                      <Input
-                        placeholder="รายละเอียด"
-                        value={item.description}
-                        onChange={(e) => updateItemRow(index, 'description', e.target.value)}
-                      />
+                  <div key={index} className="space-y-2 p-3 bg-gray-50 rounded-lg">
+                    <div className="flex gap-2 items-start">
+                      <div className="flex-1">
+                        <Input
+                          placeholder="ชื่อรายการ"
+                          value={item.description}
+                          onChange={(e) => updateItemRow(index, 'description', e.target.value)}
+                        />
+                      </div>
+                      <div className="w-16">
+                        <Input
+                          type="number"
+                          placeholder="จำนวน"
+                          value={item.quantity}
+                          onChange={(e) => updateItemRow(index, 'quantity', Number(e.target.value))}
+                        />
+                      </div>
+                      <div className="w-20">
+                        <Input
+                          placeholder="หน่วย"
+                          value={item.unit}
+                          onChange={(e) => updateItemRow(index, 'unit', e.target.value)}
+                        />
+                      </div>
+                      <div className="w-28">
+                        <Input
+                          type="number"
+                          placeholder="ราคา/หน่วย"
+                          value={item.unitPrice}
+                          onChange={(e) => updateItemRow(index, 'unitPrice', Number(e.target.value))}
+                        />
+                      </div>
+                      {formData.type === 'package' && (formData.items || []).length > 1 && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-9 w-9 text-red-500"
+                          onClick={() => removeItemRow(index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
-                    <div className="w-16">
-                      <Input
-                        type="number"
-                        placeholder="จำนวน"
-                        value={item.quantity}
-                        onChange={(e) => updateItemRow(index, 'quantity', Number(e.target.value))}
-                      />
-                    </div>
-                    <div className="w-20">
-                      <Input
-                        placeholder="หน่วย"
-                        value={item.unit}
-                        onChange={(e) => updateItemRow(index, 'unit', e.target.value)}
-                      />
-                    </div>
-                    <div className="w-28">
-                      <Input
-                        type="number"
-                        placeholder="ราคา/หน่วย"
-                        value={item.unitPrice}
-                        onChange={(e) => updateItemRow(index, 'unitPrice', Number(e.target.value))}
-                      />
-                    </div>
-                    {formData.type === 'package' && (formData.items || []).length > 1 && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-9 w-9 text-red-500"
-                        onClick={() => removeItemRow(index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
+                    <Textarea
+                      placeholder="รายละเอียดเพิ่มเติม (ไม่บังคับ) เช่น&#10;- ออกแบบ UI/UX&#10;- พัฒนา Frontend&#10;- ทดสอบระบบ"
+                      value={item.details || ''}
+                      onChange={(e) => updateItemRow(index, 'details', e.target.value)}
+                      className="min-h-[60px] text-sm"
+                      rows={2}
+                    />
                   </div>
                 ))}
               </div>

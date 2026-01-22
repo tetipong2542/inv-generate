@@ -483,13 +483,24 @@ export function DocumentStep() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs sm:text-sm">รายละเอียด</Label>
+                <Label className="text-xs sm:text-sm">ชื่อรายการ</Label>
                 <Textarea
                   value={item.description}
                   onChange={(e) => handleItemChange(index, 'description', e.target.value)}
                   placeholder="รายละเอียดสินค้าหรือบริการ"
                   rows={2}
                   className="text-sm"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs sm:text-sm text-gray-500">รายละเอียดเพิ่มเติม (ไม่บังคับ)</Label>
+                <Textarea
+                  value={item.details || ''}
+                  onChange={(e) => handleItemChange(index, 'details', e.target.value)}
+                  placeholder={"เช่น:\n- ออกแบบ UI/UX\n- พัฒนา Frontend\n- ทดสอบระบบ"}
+                  rows={3}
+                  className="text-sm text-gray-600"
                 />
               </div>
 
