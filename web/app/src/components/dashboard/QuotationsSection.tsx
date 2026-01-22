@@ -263,15 +263,36 @@ export function QuotationsSection() {
   const findPdf = (doc: DocumentWithMeta): OutputFile | undefined => {
     const docNumber = doc.documentNumber || doc.id || '';
     const docType = doc.type || '';
-    
+
     // Try to find PDF that matches document number
     return pdfFiles.find(pdf => {
       const pdfName = pdf.filename.toLowerCase();
       const docNumLower = docNumber.toLowerCase();
-      
-      // Match patterns like "quotation-QT-202601-001.pdf" or "receipt-REC-2024-TEST.pdf"
-      return pdfName.includes(docNumLower) || 
-             (docType && pdfName.includes(docType) && pdfName.includes(docNumLower.replace(/[^a-z0-9]/gi, '')));
+
+      // Direct match: filename contains exact document number
+      if (pdfName.includes(docNumLower)) {
+        return true;
+      }
+
+      // Type-based match: filename contains document type and document number (without special chars)
+      const docNumNormalized = docNumLower.replace(/[^a-z0-9]/gi, '');
+      if (docType && pdfName.includes(docType) && pdfName.includes(docNumNormalized)) {
+        return true;
+      }
+
+      // Expected filename pattern match: {type}-{documentNumber}.pdf
+      const expectedFilename = `${docType}-${docNumLower}.pdf`;
+      if (pdfName === expectedFilename) {
+        return true;
+      }
+
+      // Fallback: Check if PDF filename ends with document number
+      const pdfBaseName = pdfName.replace('.pdf', '');
+      if (pdfBaseName.endsWith(docNumLower)) {
+        return true;
+      }
+
+      return false;
     });
   };
 
@@ -441,6 +462,19 @@ export function QuotationsSection() {
       const children = parentToChildren.get(chain.chainId) || [];
       if (children.length > 0) {
         chain.isLatestInstallment = false;
+
+        // Parent chain: Calculate total paid across ALL children
+        const totalPaidByChildren = children.reduce((sum, child) => sum + child.thisChainPaid, 0);
+        const contractTotal = children[0]?.totalContractAmount || chain.totalContractAmount;
+
+        // If children's total >= contract amount, mark parent as complete
+        if (totalPaidByChildren >= contractTotal) {
+          chain.isPaymentComplete = true;
+          // Also mark all children as complete
+          children.forEach(child => {
+            child.isPaymentComplete = true;
+          });
+        }
       }
 
       if (chain.parentChainId) {
