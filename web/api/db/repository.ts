@@ -103,7 +103,7 @@ export const documentsRepo = {
     await Bun.write(filePath, JSON.stringify(doc, null, 2));
   },
 
-  async update(id: string, updates: Partial<Document>): Promise<void> {
+  async update(id: string, updates: Partial<Document & { archived_at?: string | null }>): Promise<void> {
     if (USE_SQLITE) {
       const existing = await db.getDocumentById(id);
       if (existing) {
@@ -112,6 +112,7 @@ export const documentsRepo = {
           status: updates.status,
           data: { ...currentData, ...updates },
           chain_id: updates.chainId,
+          archived_at: updates.archived_at,
         });
       }
       return;
