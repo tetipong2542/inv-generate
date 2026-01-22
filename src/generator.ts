@@ -50,7 +50,8 @@ async function injectDataIntoTemplate(
   data: DocumentData,
   customer: Customer,
   config: FreelancerConfig,
-  signatureDataUri: string | null
+  signatureDataUri: string | null,
+  documentType: "invoice" | "quotation" | "receipt"
 ): Promise<string> {
   let html = template;
 
@@ -270,10 +271,17 @@ async function injectDataIntoTemplate(
         `;
       }
       
+      const highlightColors = {
+        quotation: { bg: '#f3e8ff', text: '#7c3aed' },
+        invoice: { bg: '#f3f4f6', text: '#374151' },
+        receipt: { bg: '#dcfce7', text: '#16a34a' },
+      };
+      const colors = highlightColors[documentType];
+      
       const mainPaymentRow = `
-        <div class="summary-row" style="font-size: 1.15em; font-weight: bold; color: #2563eb; background: #eff6ff; padding: 10px; margin: 8px -10px; border-radius: 6px;">
-          <span>💰 งวดนี้ชำระ ${paymentLabel}</span>
-          <span class="amount" style="font-size: 1.2em;">${formatNumber(paymentAmount)}</span>
+        <div class="summary-row" style="font-size: 1em; font-weight: bold; color: ${colors.text}; background: ${colors.bg}; padding: 10px; margin: 8px -10px; border-radius: 6px;">
+          <span>งวดนี้ชำระ ${paymentLabel}</span>
+          <span class="amount" style="font-size: 1.1em;">${formatNumber(paymentAmount)}</span>
         </div>
       `;
       
@@ -369,10 +377,17 @@ async function injectDataIntoTemplate(
         `;
       }
       
+      const highlightColors = {
+        quotation: { bg: '#f3e8ff', text: '#7c3aed' },
+        invoice: { bg: '#f3f4f6', text: '#374151' },
+        receipt: { bg: '#dcfce7', text: '#16a34a' },
+      };
+      const colors = highlightColors[documentType];
+      
       const mainPaymentRow = `
-        <div class="summary-row" style="font-size: 1.15em; font-weight: bold; color: #2563eb; background: #eff6ff; padding: 10px; margin: 8px -10px; border-radius: 6px;">
-          <span>💰 งวดนี้ชำระ ${paymentLabel}</span>
-          <span class="amount" style="font-size: 1.2em;">${formatNumber(paymentAmount)}</span>
+        <div class="summary-row" style="font-size: 1em; font-weight: bold; color: ${colors.text}; background: ${colors.bg}; padding: 10px; margin: 8px -10px; border-radius: 6px;">
+          <span>งวดนี้ชำระ ${paymentLabel}</span>
+          <span class="amount" style="font-size: 1.1em;">${formatNumber(paymentAmount)}</span>
         </div>
       `;
       
@@ -475,7 +490,7 @@ export async function generatePDF(
     : null;
 
   // Inject data into template
-  const html = await injectDataIntoTemplate(template, data, customer, config, signatureDataUri);
+  const html = await injectDataIntoTemplate(template, data, customer, config, signatureDataUri, type);
 
   // Launch Puppeteer
   const browser = await puppeteer.launch({
