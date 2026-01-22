@@ -243,7 +243,7 @@ async function injectDataIntoTemplate(
     const installmentData = (data as any).installment;
     let amountForThaiText = finalTotal;
     if (partialPayment?.enabled && partialPayment.value > 0) {
-      const baseAmount = installmentData?.remainingAmount || finalTotal;
+      const baseAmount = partialPayment.baseAmount || installmentData?.remainingAmount || finalTotal;
       const paymentAmount = partialPayment.type === 'percent' 
         ? baseAmount * partialPayment.value / 100 
         : partialPayment.value;
@@ -252,20 +252,23 @@ async function injectDataIntoTemplate(
         : 'งวดนี้ชำระ';
       
       let remainingInfo = '';
-      if (installmentData?.isInstallment) {
-        const remaining = installmentData.totalContractAmount - installmentData.paidToDate - paymentAmount;
+      const totalContract = installmentData?.totalContractAmount || finalTotal;
+      const paidToDate = installmentData?.paidToDate || 0;
+      const remainingAfterThis = totalContract - paidToDate - paymentAmount;
+      
+      if (partialPayment.baseAmount || installmentData?.isInstallment) {
         remainingInfo = `
           <div class="summary-row" style="color: #666; font-size: 0.9em;">
             <span>ยอดสัญญา</span>
-            <span class="amount">${formatNumber(installmentData.totalContractAmount)}</span>
+            <span class="amount">${formatNumber(totalContract)}</span>
           </div>
           <div class="summary-row" style="color: #666; font-size: 0.9em;">
             <span>ชำระแล้ว</span>
-            <span class="amount">${formatNumber(installmentData.paidToDate)}</span>
+            <span class="amount">${formatNumber(paidToDate)}</span>
           </div>
           <div class="summary-row" style="color: #e67e22; font-size: 0.9em;">
             <span>ยอดคงเหลือหลังงวดนี้</span>
-            <span class="amount">${formatNumber(remaining > 0 ? remaining : 0)}</span>
+            <span class="amount">${formatNumber(remainingAfterThis > 0 ? remainingAfterThis : 0)}</span>
           </div>
         `;
       }
@@ -327,7 +330,7 @@ async function injectDataIntoTemplate(
     const installmentData = (data as any).installment;
     let amountForThaiText = finalTotal;
     if (partialPayment?.enabled && partialPayment.value > 0) {
-      const baseAmount = installmentData?.remainingAmount || finalTotal;
+      const baseAmount = partialPayment.baseAmount || installmentData?.remainingAmount || finalTotal;
       const paymentAmount = partialPayment.type === 'percent' 
         ? baseAmount * partialPayment.value / 100 
         : partialPayment.value;
@@ -336,20 +339,23 @@ async function injectDataIntoTemplate(
         : 'งวดนี้ชำระ';
       
       let remainingInfo = '';
-      if (installmentData?.isInstallment) {
-        const remaining = installmentData.totalContractAmount - installmentData.paidToDate - paymentAmount;
+      const totalContract = installmentData?.totalContractAmount || finalTotal;
+      const paidToDate = installmentData?.paidToDate || 0;
+      const remainingAfterThis = totalContract - paidToDate - paymentAmount;
+      
+      if (partialPayment.baseAmount || installmentData?.isInstallment) {
         remainingInfo = `
           <div class="summary-row" style="color: #666; font-size: 0.9em;">
             <span>ยอดสัญญา</span>
-            <span class="amount">${formatNumber(installmentData.totalContractAmount)}</span>
+            <span class="amount">${formatNumber(totalContract)}</span>
           </div>
           <div class="summary-row" style="color: #666; font-size: 0.9em;">
             <span>ชำระแล้ว</span>
-            <span class="amount">${formatNumber(installmentData.paidToDate)}</span>
+            <span class="amount">${formatNumber(paidToDate)}</span>
           </div>
           <div class="summary-row" style="color: #e67e22; font-size: 0.9em;">
             <span>ยอดคงเหลือหลังงวดนี้</span>
-            <span class="amount">${formatNumber(remaining > 0 ? remaining : 0)}</span>
+            <span class="amount">${formatNumber(remainingAfterThis > 0 ? remainingAfterThis : 0)}</span>
           </div>
         `;
       }

@@ -51,6 +51,7 @@ export interface PartialPayment {
   value: number;
   installmentNumber?: number;
   totalInstallments?: number;
+  baseAmount?: number;
 }
 
 export interface InstallmentMeta {

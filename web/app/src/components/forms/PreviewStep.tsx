@@ -170,20 +170,31 @@ export function PreviewStep() {
   const breakdown = getTaxBreakdown();
 
   const handleGenerate = async () => {
+    let documentDataWithBase = { ...document };
+    if (document.partialPayment?.enabled && document.partialPayment.type === 'percent') {
+      const baseAmount = installment.isInstallment && installment.remainingAmount > 0 
+        ? installment.remainingAmount 
+        : breakdown.total;
+      documentDataWithBase = {
+        ...document,
+        partialPayment: {
+          ...document.partialPayment,
+          baseAmount,
+        },
+      };
+    }
+
     const response = await post<{ filename: string; documentNumber: string }>('/generate', {
       type: documentType,
-      documentData: document,
+      documentData: documentDataWithBase,
       customerId: customer?.id,
       signaturePath: selectedSignature,
-      // Revision info
       isRevision: editing.isRevision,
       originalDocumentNumber: editing.originalDocumentNumber,
       originalDocumentId: editing.originalDocumentId,
-      // Document Chain info
       chainId: linked.chainId,
       sourceDocumentId: linked.sourceDocumentId,
       sourceDocumentNumber: linked.sourceDocumentNumber,
-      // Installment info
       ...(installment.isInstallment ? {
         installment: {
           isInstallment: true,
