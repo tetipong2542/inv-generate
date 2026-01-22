@@ -550,9 +550,19 @@ app.post('/:id/create-linked', async (c) => {
         0
       );
       const taxAmount = subtotal * (sourceDoc.taxRate || 0);
-      const total = sourceDoc.taxType === 'withholding' 
+      let total = sourceDoc.taxType === 'withholding' 
         ? subtotal - taxAmount 
         : subtotal + taxAmount;
+      
+      const partialPayment = sourceDoc.partialPayment;
+      let actualPaidAmount = total;
+      if (partialPayment?.enabled) {
+        if (partialPayment.type === 'percent') {
+          actualPaidAmount = total * (partialPayment.value / 100);
+        } else if (partialPayment.type === 'fixed') {
+          actualPaidAmount = partialPayment.value;
+        }
+      }
 
       // Prepare linked document data
       const linkedDocData = {
@@ -568,11 +578,12 @@ app.post('/:id/create-linked', async (c) => {
         chainId,
         sourceDocumentId: sourceId,
         sourceDocumentNumber: sourceDoc.documentNumber,
+        partialPayment: sourceDoc.partialPayment,
         ...(targetType === 'invoice' ? { dueDate: '' } : {}),
         ...(targetType === 'receipt' ? {
           paymentDate: new Date().toISOString().split('T')[0],
           paymentMethod: 'โอนเงิน',
-          paidAmount: Math.round(total * 100) / 100,
+          paidAmount: Math.round(actualPaidAmount * 100) / 100,
         } : {}),
       };
 

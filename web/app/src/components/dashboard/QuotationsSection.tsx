@@ -389,7 +389,7 @@ export function QuotationsSection() {
       return doc.taxType === 'withholding' ? subtotal - taxAmount : subtotal + taxAmount;
     };
     
-    return Array.from(groups.entries()).map(([chainId, docs]) => {
+    const chainResults = Array.from(groups.entries()).map(([chainId, docs]) => {
       const sortedDocs = sortByType(docs);
       const qt = docs.find(d => d.type === 'quotation');
       const recs = docs.filter(d => d.type === 'receipt');
@@ -406,6 +406,7 @@ export function QuotationsSection() {
       const isInstallment = !!installmentData?.isInstallment;
       const installmentNumber = installmentData?.installmentNumber ?? 1;
       const isPaymentComplete = cumulativePaid >= masterTotal;
+      const parentChainId = installmentData?.parentChainId || null;
       
       return {
         chainId,
@@ -418,8 +419,35 @@ export function QuotationsSection() {
         isInstallment,
         installmentNumber,
         isPaymentComplete,
+        parentChainId,
+        isLatestInstallment: true,
       };
     });
+    
+    const parentToChildren = new Map<string, typeof chainResults>();
+    chainResults.forEach(chain => {
+      if (chain.parentChainId) {
+        if (!parentToChildren.has(chain.parentChainId)) {
+          parentToChildren.set(chain.parentChainId, []);
+        }
+        parentToChildren.get(chain.parentChainId)!.push(chain);
+      }
+    });
+    
+    chainResults.forEach(chain => {
+      const children = parentToChildren.get(chain.chainId) || [];
+      if (children.length > 0) {
+        chain.isLatestInstallment = false;
+      }
+      
+      if (chain.parentChainId) {
+        const siblings = parentToChildren.get(chain.parentChainId) || [];
+        const maxInstallment = Math.max(...siblings.map(s => s.installmentNumber));
+        chain.isLatestInstallment = chain.installmentNumber === maxInstallment;
+      }
+    });
+    
+    return chainResults;
   }, [archivedDocuments, selection.customerId, searchTerm, customers]);
 
   const calculateTotal = (doc: DocumentWithMeta) => {
@@ -654,7 +682,7 @@ export function QuotationsSection() {
                           </td>
                           <td className="p-2">
                             <div className="flex gap-1 justify-center">
-                              {!chain.isPaymentComplete && primaryDoc && (
+                              {!chain.isPaymentComplete && chain.isLatestInstallment && primaryDoc && (
                                 <Button 
                                   size="sm" 
                                   variant="outline" 
@@ -667,7 +695,7 @@ export function QuotationsSection() {
                                       installmentNumber: chain.installmentNumber + 1,
                                       totalContractAmount: chain.totalContractAmount,
                                       paidToDate: chain.cumulativePaid,
-                                      parentChainId: chain.chainId,
+                                      parentChainId: chain.parentChainId || chain.chainId,
                                     }, customer);
                                     navigate('/create');
                                   }}
