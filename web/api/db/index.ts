@@ -104,6 +104,39 @@ function initializeTables(db: Database) {
     db.exec(`ALTER TABLE services ADD COLUMN is_active INTEGER DEFAULT 1`);
   } catch (e) { /* column already exists */ }
 
+  // Migration: Recreate services table if it has old schema (unit column should not exist)
+  try {
+    const cols = db.query(`PRAGMA table_info(services)`).all() as { name: string }[];
+    const hasUnitColumn = cols.some(c => c.name === 'unit');
+    if (hasUnitColumn) {
+      console.log('Migrating services table: removing old schema...');
+      db.exec(`DROP TABLE IF EXISTS services_old`);
+      db.exec(`ALTER TABLE services RENAME TO services_old`);
+      db.exec(`
+        CREATE TABLE services (
+          id TEXT PRIMARY KEY,
+          type TEXT DEFAULT 'item',
+          name TEXT NOT NULL,
+          description TEXT,
+          items TEXT,
+          category TEXT,
+          is_active INTEGER DEFAULT 1,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      db.exec(`
+        INSERT INTO services (id, name, description, category, is_active, created_at, updated_at)
+        SELECT id, name, description, category, is_active, created_at, updated_at
+        FROM services_old
+      `);
+      db.exec(`DROP TABLE services_old`);
+      console.log('Services table migration complete');
+    }
+  } catch (e) {
+    console.log('Services migration skipped:', e);
+  }
+
   // Metadata table (document counters, etc.)
   db.exec(`
     CREATE TABLE IF NOT EXISTS metadata (
