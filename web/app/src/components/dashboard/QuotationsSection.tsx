@@ -540,10 +540,14 @@ export function QuotationsSection() {
                     const qt = chain.quotation;
                     const inv = chain.documents.find(d => d.type === 'invoice');
                     const rec = chain.documents.find(d => d.type === 'receipt');
-                    const customerName = qt ? getCustomerName(qt.customerId) : '-';
-                    const total = qt ? calculateTotal(qt) : 0;
+                    const primaryDoc = qt || inv || rec || chain.documents[0];
+                    const customerName = primaryDoc ? getCustomerName(primaryDoc.customerId) : '-';
+                    const displayTotal = rec ? calculateTotal(rec) : inv ? calculateTotal(inv) : qt ? calculateTotal(qt) : 0;
                     const isExpanded = expandedChains.has(chain.chainId);
-                    const subDocs = chain.documents.filter(d => d.type !== 'quotation');
+                    const subDocs = chain.documents.filter(d => d.id !== primaryDoc?.id);
+                    const docNumber = primaryDoc?.documentNumber || 'ไม่ระบุ';
+                    const docType = primaryDoc?.type || 'quotation';
+                    const docTypeConfig = typeConfig[docType];
                     
                     return (
                       <React.Fragment key={chain.chainId}>
@@ -567,16 +571,16 @@ export function QuotationsSection() {
                             )}
                           </td>
                           <td className="p-2">
-                            <div className="font-medium">{qt?.documentNumber || chain.chainId}</div>
+                            <div className="font-medium">{docNumber}</div>
                             <div className="text-xs text-gray-400">{chain.documents.length} เอกสาร</div>
                           </td>
                           <td className="p-2 hidden sm:table-cell">
-                            <span className={cn("text-xs px-2 py-1 rounded", typeConfig.quotation.bgColor, typeConfig.quotation.color)}>
-                              ใบเสนอราคา
+                            <span className={cn("text-xs px-2 py-1 rounded", docTypeConfig.bgColor, docTypeConfig.color)}>
+                              {docTypeConfig.label}
                             </span>
                           </td>
                           <td className="p-2 hidden lg:table-cell truncate">{customerName}</td>
-                          <td className="p-2 text-right font-medium">฿{formatNumber(total)}</td>
+                          <td className="p-2 text-right font-medium">฿{formatNumber(displayTotal)}</td>
                           <td className="p-2 text-center">
                             <span className="text-xs px-2 py-1 rounded bg-gray-200 text-gray-700">
                               จัดเก็บแล้ว
@@ -584,9 +588,9 @@ export function QuotationsSection() {
                           </td>
                           <td className="p-2">
                             <div className="flex gap-1 justify-center">
-                              {qt && (
-                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openPdf(qt); }}>
-                                  <FileDown className="h-4 w-4 text-purple-600" />
+                              {primaryDoc && (
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openPdf(primaryDoc); }}>
+                                  <FileDown className={cn("h-4 w-4", docTypeConfig.color)} />
                                 </Button>
                               )}
                               <Button 
@@ -595,7 +599,7 @@ export function QuotationsSection() {
                                 className="h-7 w-7 text-red-500 hover:text-red-700"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  if (confirm(`ลบ Chain ${qt?.documentNumber || chain.chainId} และเอกสารทั้งหมด?`)) {
+                                  if (confirm(`ลบ ${docNumber} และเอกสารทั้งหมดใน Chain?`)) {
                                     handleDeleteChain(chain.chainId);
                                   }
                                 }}
@@ -606,19 +610,18 @@ export function QuotationsSection() {
                           </td>
                         </tr>
                         
-                        {isExpanded && subDocs.map((doc) => (
+                        {isExpanded && subDocs.map((doc) => {
+                          const subDocType = doc.type || 'quotation';
+                          const subDocConfig = typeConfig[subDocType];
+                          return (
                           <tr key={doc.id} className="bg-gray-50/50 border-t border-gray-100">
                             <td className="p-2"></td>
                             <td className="p-2 pl-6">
                               <div className="text-gray-600">{doc.documentNumber}</div>
                             </td>
                             <td className="p-2 hidden sm:table-cell">
-                              <span className={cn(
-                                "text-xs px-2 py-1 rounded",
-                                doc.type === 'invoice' && 'bg-blue-100 text-blue-700',
-                                doc.type === 'receipt' && 'bg-green-100 text-green-700'
-                              )}>
-                                {doc.type === 'invoice' ? 'ใบแจ้งหนี้' : 'ใบเสร็จ'}
+                              <span className={cn("text-xs px-2 py-1 rounded", subDocConfig.bgColor, subDocConfig.color)}>
+                                {subDocConfig.label}
                               </span>
                             </td>
                             <td className="p-2 hidden lg:table-cell"></td>
@@ -627,12 +630,13 @@ export function QuotationsSection() {
                             <td className="p-2">
                               <div className="flex gap-1 justify-center">
                                 <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => openPdf(doc)}>
-                                  <FileDown className={cn("h-3.5 w-3.5", doc.type === 'invoice' ? 'text-blue-600' : 'text-green-600')} />
+                                  <FileDown className={cn("h-3.5 w-3.5", subDocConfig.color)} />
                                 </Button>
                               </div>
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </React.Fragment>
                     );
                   })}
