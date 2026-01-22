@@ -442,11 +442,22 @@ export function QuotationsSection() {
       if (children.length > 0) {
         chain.isLatestInstallment = false;
       }
-      
+
       if (chain.parentChainId) {
         const siblings = parentToChildren.get(chain.parentChainId) || [];
         const maxInstallment = Math.max(...siblings.map(s => s.installmentNumber));
         chain.isLatestInstallment = chain.installmentNumber === maxInstallment;
+
+        // Calculate total paid across ALL sibling installments
+        const totalPaidAcrossAllSiblings = siblings.reduce((sum, s) => sum + s.thisChainPaid, 0);
+        const contractTotal = siblings[0]?.totalContractAmount || chain.totalContractAmount;
+
+        // If total across all siblings >= contract amount, mark ALL siblings as complete
+        if (totalPaidAcrossAllSiblings >= contractTotal) {
+          siblings.forEach(sibling => {
+            sibling.isPaymentComplete = true;
+          });
+        }
       }
     });
     
