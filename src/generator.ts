@@ -129,8 +129,8 @@ async function injectDataIntoTemplate(
     .map((item, index) => {
       const lineTotal = item.quantity * item.unitPrice;
       const descriptionHtml = item.details 
-        ? `<span class="item-main"><strong>${index + 1}. ${item.description}</strong></span><br><span class="item-details">${item.details}</span>`
-        : `<span class="item-main"><strong>${index + 1}. ${item.description}</strong></span>`;
+        ? `<span class="item-main"><strong>${item.description}</strong></span><br><span class="item-details">${item.details}</span>`
+        : `<span class="item-main"><strong>${item.description}</strong></span>`;
       return `
         <tr>
           <td>${index + 1}</td>
