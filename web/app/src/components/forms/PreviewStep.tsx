@@ -203,6 +203,7 @@ export function PreviewStep() {
           paidToDate: installment.paidToDate,
           remainingAmount: installment.remainingAmount,
           parentChainId: installment.parentChainId,
+          baseDocumentNumber: installment.baseDocumentNumber,
         },
       } : {}),
     });

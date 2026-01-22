@@ -507,7 +507,10 @@ app.post('/', async (c) => {
       finalDocumentData.revisionNumber = revisionNumber;
     } else if (documentData.documentNumber === 'auto') {
       let baseDocNumber: string;
-      if (USE_REPO) {
+      
+      if (installment?.baseDocumentNumber) {
+        baseDocNumber = installment.baseDocumentNumber;
+      } else if (USE_REPO) {
         baseDocNumber = await getNextDocumentNumberFromDB(type);
       } else {
         baseDocNumber = await getNextDocumentNumber(type);
@@ -524,11 +527,10 @@ app.post('/', async (c) => {
       
       if (!rpSuffix) {
         const hasPartialPayment = documentData.partialPayment?.enabled;
-        if (hasPartialPayment) {
+        const isInstallmentDoc = installment?.isInstallment;
+        if (hasPartialPayment || isInstallmentDoc) {
           const nextRpNumber = await getNextRpNumber(baseDocNumber);
           rpSuffix = `-RP${String(nextRpNumber).padStart(3, '0')}`;
-        } else if (installment?.installmentNumber) {
-          rpSuffix = `-RP${String(installment.installmentNumber).padStart(3, '0')}`;
         }
       }
       

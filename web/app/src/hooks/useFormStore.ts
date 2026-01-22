@@ -30,6 +30,7 @@ interface InstallmentState {
   paidToDate: number;
   remainingAmount: number;
   parentChainId: string | null;
+  baseDocumentNumber: string | null;
   sourceDocument: DocumentWithMeta | null;
 }
 
@@ -109,6 +110,7 @@ const initialState: FormState & { editing: EditingState; linked: LinkedState; in
     paidToDate: 0,
     remainingAmount: 0,
     parentChainId: null,
+    baseDocumentNumber: null,
     sourceDocument: null,
   },
 };
@@ -398,6 +400,7 @@ export const useFormStore = create<FormStore>((set, get) => ({
         paidToDate: (linkedData as any).installment.paidToDate || 0,
         remainingAmount: (linkedData as any).installment.remainingAmount || 0,
         parentChainId: (linkedData as any).installment.parentChainId || null,
+        baseDocumentNumber: (linkedData as any).installment.baseDocumentNumber || null,
         sourceDocument: sourceDoc,
       } : {
         isInstallment: false,
@@ -406,6 +409,7 @@ export const useFormStore = create<FormStore>((set, get) => ({
         paidToDate: 0,
         remainingAmount: 0,
         parentChainId: null,
+        baseDocumentNumber: null,
         sourceDocument: null,
       },
     });
@@ -418,6 +422,9 @@ export const useFormStore = create<FormStore>((set, get) => ({
 
     const profileId = (sourceDocument as any).profileId || null;
     const remaining = totalContractAmount - paidToDate;
+    
+    const sourceDocNumber = sourceDocument.documentNumber || '';
+    const baseDocumentNumber = sourceDocNumber.replace(/-RP\d+$/, '');
 
     set({
       currentStep: 2,
@@ -462,6 +469,7 @@ export const useFormStore = create<FormStore>((set, get) => ({
         paidToDate,
         remainingAmount: totalContractAmount - paidToDate,
         parentChainId,
+        baseDocumentNumber,
         sourceDocument,
       },
     });
