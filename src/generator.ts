@@ -272,14 +272,14 @@ async function injectDataIntoTemplate(
       }
       
       const highlightColors = {
-        quotation: { bg: '#f3e8ff', text: '#7c3aed' },
+        quotation: { bg: '#f3e8ff', text: '#7e22ce' },
         invoice: { bg: '#f3f4f6', text: '#374151' },
-        receipt: { bg: '#dcfce7', text: '#16a34a' },
+        receipt: { bg: '#dcfce7', text: '#15803d' },
       };
       const colors = highlightColors[documentType];
       
       const mainPaymentRow = `
-        <div class="summary-row" style="font-size: 1em; font-weight: bold; color: ${colors.text}; background: ${colors.bg}; padding: 10px; margin: 8px -10px; border-radius: 6px;">
+        <div class="summary-row" style="font-size: 1em; font-weight: bold; color: ${colors.text}; background: ${colors.bg}; padding: 10px; margin: 8px -10px;">
           <span>งวดนี้ชำระ ${paymentLabel}</span>
           <span class="amount" style="font-size: 1.1em;">${formatNumber(paymentAmount)}</span>
         </div>
