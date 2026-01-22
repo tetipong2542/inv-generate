@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, Pause, X, FileText, Trash2, Search, FileDown, Pencil, GitBranch, FileCheck, Receipt, Link2, Clock, Archive } from 'lucide-react';
+import { Check, Pause, X, FileText, Trash2, Search, FileDown, Pencil, GitBranch, FileCheck, Receipt, Link2, Clock, Archive, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -70,6 +70,7 @@ export function QuotationsSection() {
   
   const [pdfFiles, setPdfFiles] = useState<OutputFile[]>([]);
   const [archivedDocuments, setArchivedDocuments] = useState<DocumentWithMeta[]>([]);
+  const [expandedChains, setExpandedChains] = useState<Set<string>>(new Set());
   
   // Delete confirmation
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; doc: DocumentWithMeta | null }>({
@@ -506,64 +507,119 @@ export function QuotationsSection() {
                 ไม่มีเอกสารในคลัง
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {groupedArchivedChains.map((chain) => {
                   const qt = chain.quotation;
+                  const inv = chain.documents.find(d => d.type === 'invoice');
+                  const rec = chain.documents.find(d => d.type === 'receipt');
                   const customerName = qt ? getCustomerName(qt.customerId) : '-';
                   const total = qt ? calculateTotal(qt) : 0;
+                  const isExpanded = expandedChains.has(chain.chainId);
+                  const subDocs = chain.documents.filter(d => d.type !== 'quotation');
                   
                   return (
-                    <div key={chain.chainId} className="border rounded-lg p-3 bg-gray-50">
-                      <div className="flex items-start justify-between gap-2">
+                    <div key={chain.chainId} className="border rounded-lg bg-gray-50 overflow-hidden">
+                      <div 
+                        className="flex items-center gap-2 p-3 cursor-pointer hover:bg-gray-100"
+                        onClick={() => {
+                          const newSet = new Set(expandedChains);
+                          if (isExpanded) {
+                            newSet.delete(chain.chainId);
+                          } else {
+                            newSet.add(chain.chainId);
+                          }
+                          setExpandedChains(newSet);
+                        }}
+                      >
+                        {subDocs.length > 0 ? (
+                          isExpanded ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-500" />
+                        ) : (
+                          <div className="w-4" />
+                        )}
+                        
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-medium text-sm">
+                            <span className={cn("text-xs px-1.5 py-0.5 rounded", typeConfig.quotation.bgColor, typeConfig.quotation.color)}>
+                              QT
+                            </span>
+                            <span className="font-medium text-sm truncate">
                               {qt?.documentNumber || chain.chainId}
                             </span>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-gray-400">
                               ({chain.documents.length} เอกสาร)
                             </span>
                           </div>
-                          <div className="text-xs text-gray-500 mt-1">
+                          <div className="text-xs text-gray-500 mt-0.5 truncate">
                             {customerName} • ฿{formatNumber(total)}
                           </div>
-                          <div className="flex gap-1 mt-2 flex-wrap">
-                            {chain.documents.map(doc => {
-                              const tConfig = doc.type ? typeConfig[doc.type] : null;
-                              return (
-                                <button
-                                  key={doc.id}
-                                  onClick={() => openPdf(doc)}
-                                  className={cn(
-                                    "text-xs px-2 py-0.5 rounded flex items-center gap-1",
-                                    tConfig?.bgColor,
-                                    tConfig?.color,
-                                    "hover:opacity-80"
-                                  )}
-                                >
-                                  <FileDown className="h-3 w-3" />
-                                  {tConfig?.shortLabel}
-                                </button>
-                              );
-                            })}
-                          </div>
                         </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => {
-                            if (confirm(`ลบ Chain ${qt?.documentNumber || chain.chainId} และเอกสารทั้งหมด?`)) {
-                              handleDeleteChain(chain.chainId);
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                        
+                        <div className="flex items-center gap-1">
+                          {qt && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0"
+                              onClick={(e) => { e.stopPropagation(); openPdf(qt); }}
+                            >
+                              <FileDown className="h-3.5 w-3.5 text-purple-600" />
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm(`ลบ Chain ${qt?.documentNumber || chain.chainId} และเอกสารทั้งหมด?`)) {
+                                handleDeleteChain(chain.chainId);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
-                      {chain.archivedAt && (
-                        <div className="text-xs text-gray-400 mt-2">
-                          Archived: {formatDateTimeThai(chain.archivedAt)}
+                      
+                      {isExpanded && subDocs.length > 0 && (
+                        <div className="border-t bg-white">
+                          {inv && (
+                            <div className="flex items-center gap-2 px-3 py-2 pl-10 hover:bg-gray-50">
+                              <span className={cn("text-xs px-1.5 py-0.5 rounded", typeConfig.invoice.bgColor, typeConfig.invoice.color)}>
+                                INV
+                              </span>
+                              <span className="text-sm text-gray-700 flex-1 truncate">{inv.documentNumber}</span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0"
+                                onClick={() => openPdf(inv)}
+                              >
+                                <FileDown className="h-3 w-3 text-blue-600" />
+                              </Button>
+                            </div>
+                          )}
+                          {rec && (
+                            <div className="flex items-center gap-2 px-3 py-2 pl-10 hover:bg-gray-50">
+                              <span className={cn("text-xs px-1.5 py-0.5 rounded", typeConfig.receipt.bgColor, typeConfig.receipt.color)}>
+                                REC
+                              </span>
+                              <span className="text-sm text-gray-700 flex-1 truncate">{rec.documentNumber}</span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0"
+                                onClick={() => openPdf(rec)}
+                              >
+                                <FileDown className="h-3 w-3 text-green-600" />
+                              </Button>
+                            </div>
+                          )}
+                          {chain.archivedAt && (
+                            <div className="text-xs text-gray-400 px-3 py-1.5 pl-10 border-t bg-gray-50">
+                              Archived: {formatDateTimeThai(chain.archivedAt)}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
