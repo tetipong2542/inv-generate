@@ -400,19 +400,20 @@ export function QuotationsSection() {
       const installmentData = primaryDoc?.installment;
       
       const masterTotal = installmentData?.totalContractAmount ?? (qt ? calcTotal(qt) : thisChainPaid);
-      const allPaidToDate = installmentData?.paidToDate ?? thisChainPaid;
+      const previouslyPaid = installmentData?.paidToDate ?? 0;
+      const cumulativePaid = previouslyPaid + thisChainPaid;
       
       const isInstallment = !!installmentData?.isInstallment;
       const installmentNumber = installmentData?.installmentNumber ?? 1;
-      const isPaymentComplete = (allPaidToDate + thisChainPaid) >= masterTotal;
+      const isPaymentComplete = cumulativePaid >= masterTotal;
       
       return {
         chainId,
         documents: sortedDocs,
         quotation: qt,
         archivedAt: docs[0]?.archivedAt,
-        paidToDate: allPaidToDate + thisChainPaid,
         thisChainPaid,
+        cumulativePaid,
         totalContractAmount: masterTotal,
         isInstallment,
         installmentNumber,
@@ -600,7 +601,7 @@ export function QuotationsSection() {
                       ? `${docTypeConfig.label} (งวด ${chain.installmentNumber})`
                       : docTypeConfig.label;
                     
-                    const isIncomplete = !chain.isPaymentComplete && chain.paidToDate > 0;
+                    const isIncomplete = !chain.isPaymentComplete && chain.thisChainPaid > 0;
                     
                     return (
                       <React.Fragment key={chain.chainId}>
@@ -641,7 +642,7 @@ export function QuotationsSection() {
                             "p-2 text-right hidden md:table-cell",
                             isIncomplete ? "text-red-600 font-medium" : "text-gray-500"
                           )}>
-                            ฿{formatNumber(chain.paidToDate)}
+                            ฿{formatNumber(chain.thisChainPaid)}
                           </td>
                           <td className="p-2 text-center">
                             <span className={cn(
@@ -665,7 +666,7 @@ export function QuotationsSection() {
                                       sourceDocument: primaryDoc,
                                       installmentNumber: chain.installmentNumber + 1,
                                       totalContractAmount: chain.totalContractAmount,
-                                      paidToDate: chain.paidToDate,
+                                      paidToDate: chain.cumulativePaid,
                                       parentChainId: chain.chainId,
                                     }, customer);
                                     navigate('/create');
