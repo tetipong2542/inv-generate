@@ -212,10 +212,9 @@ async function updateOriginalDocumentStatus(docId: string, status: string): Prom
 }
 
 // Helper function to update source document's linkedDocuments (for Document Chain)
-async function updateSourceDocumentLinks(sourceDocId: string, targetType: string, targetDocId: string): Promise<boolean> {
+async function updateSourceDocumentLinks(sourceDocId: string, targetType: string, targetDocId: string, chainId?: string): Promise<boolean> {
   try {
     if (USE_REPO) {
-      // SQLite: Update via repository
       const sourceDoc = await documentsRepo.getById(sourceDocId);
       if (!sourceDoc) {
         return false;
@@ -228,11 +227,15 @@ async function updateSourceDocumentLinks(sourceDocId: string, targetType: string
         linkedDocuments.receiptId = targetDocId;
       }
       
-      await documentsRepo.update(sourceDocId, { linkedDocuments });
+      const updates: any = { linkedDocuments };
+      if (chainId && !sourceDoc.chainId) {
+        updates.chainId = chainId;
+      }
+      
+      await documentsRepo.update(sourceDocId, updates);
       return true;
     }
     
-    // JSON fallback
     const filePath = path.join(EXAMPLES_DIR, `${sourceDocId}.json`);
     const file = Bun.file(filePath);
     
@@ -247,6 +250,10 @@ async function updateSourceDocumentLinks(sourceDocId: string, targetType: string
       data.linkedDocuments.invoiceId = targetDocId;
     } else if (targetType === 'receipt') {
       data.linkedDocuments.receiptId = targetDocId;
+    }
+    
+    if (chainId && !data.chainId) {
+      data.chainId = chainId;
     }
     
     await Bun.write(filePath, JSON.stringify(data, null, 2));
@@ -516,7 +523,7 @@ app.post('/', async (c) => {
       
       // Update source document's linkedDocuments if this is a chain document
       if (sourceDocumentId && chainId) {
-        await updateSourceDocumentLinks(sourceDocumentId, type, docId);
+        await updateSourceDocumentLinks(sourceDocumentId, type, docId, chainId);
       }
     } catch (saveError) {
       console.error('Error saving document:', saveError);
