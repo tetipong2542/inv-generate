@@ -594,6 +594,7 @@ app.post('/:id/create-linked', async (c) => {
         sourceDocumentId: sourceId,
         sourceDocumentNumber: sourceDoc.documentNumber,
         partialPayment: sourceDoc.partialPayment,
+        installment: sourceDoc.installment,
         ...(targetType === 'invoice' ? { dueDate: '' } : {}),
         ...(targetType === 'receipt' ? {
           paymentDate: new Date().toISOString().split('T')[0],

@@ -473,15 +473,24 @@ app.post('/', async (c) => {
         baseDocNumber = await getNextDocumentNumber(type);
       }
       
-      const hasPartialPayment = documentData.partialPayment?.enabled;
-      const installmentNum = installment?.installmentNumber || (hasPartialPayment ? 1 : 0);
+      let rpSuffix = '';
       
-      if (installmentNum >= 1) {
-        const rpSuffix = `-RP${String(installmentNum).padStart(3, '0')}`;
-        finalDocumentData.documentNumber = `${baseDocNumber}${rpSuffix}`;
-      } else {
-        finalDocumentData.documentNumber = baseDocNumber;
+      if (sourceDocumentNumber) {
+        const rpMatch = sourceDocumentNumber.match(/-RP(\d+)$/);
+        if (rpMatch) {
+          rpSuffix = `-RP${rpMatch[1]}`;
+        }
       }
+      
+      if (!rpSuffix) {
+        const hasPartialPayment = documentData.partialPayment?.enabled;
+        const installmentNum = installment?.installmentNumber || (hasPartialPayment ? 1 : 0);
+        if (installmentNum >= 1) {
+          rpSuffix = `-RP${String(installmentNum).padStart(3, '0')}`;
+        }
+      }
+      
+      finalDocumentData.documentNumber = rpSuffix ? `${baseDocNumber}${rpSuffix}` : baseDocNumber;
     }
 
     // Validate document based on type

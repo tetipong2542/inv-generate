@@ -378,7 +378,6 @@ export const useFormStore = create<FormStore>((set, get) => ({
         sourceDocumentId: sourceDoc.id || null,
         sourceDocumentNumber: sourceDoc.documentNumber || null,
         chainId: linkedData.chainId || null,
-        // Store original data for comparison
         originalData: {
           profileId,
           taxConfig: linkedData.taxConfig || (sourceDoc as any).taxConfig,
@@ -388,6 +387,23 @@ export const useFormStore = create<FormStore>((set, get) => ({
           discount: sourceDiscount,
           partialPayment: sourcePartialPayment,
         },
+      },
+      installment: (linkedData as any).installment ? {
+        isInstallment: true,
+        installmentNumber: (linkedData as any).installment.installmentNumber || 1,
+        totalContractAmount: (linkedData as any).installment.totalContractAmount || 0,
+        paidToDate: (linkedData as any).installment.paidToDate || 0,
+        remainingAmount: (linkedData as any).installment.remainingAmount || 0,
+        parentChainId: (linkedData as any).installment.parentChainId || null,
+        sourceDocument: sourceDoc,
+      } : {
+        isInstallment: false,
+        installmentNumber: 1,
+        totalContractAmount: 0,
+        paidToDate: 0,
+        remainingAmount: 0,
+        parentChainId: null,
+        sourceDocument: null,
       },
     });
   },
