@@ -28,6 +28,7 @@ interface InstallmentState {
   installmentNumber: number;
   totalContractAmount: number;
   paidToDate: number;
+  remainingAmount: number;
   parentChainId: string | null;
   sourceDocument: DocumentWithMeta | null;
 }
@@ -106,6 +107,7 @@ const initialState: FormState & { editing: EditingState; linked: LinkedState; in
     installmentNumber: 1,
     totalContractAmount: 0,
     paidToDate: 0,
+    remainingAmount: 0,
     parentChainId: null,
     sourceDocument: null,
   },
@@ -439,6 +441,7 @@ export const useFormStore = create<FormStore>((set, get) => ({
         installmentNumber,
         totalContractAmount,
         paidToDate,
+        remainingAmount: totalContractAmount - paidToDate,
         parentChainId,
         sourceDocument,
       },

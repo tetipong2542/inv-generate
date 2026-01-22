@@ -240,19 +240,42 @@ async function injectDataIntoTemplate(
     
     // Partial payment section (optional)
     const partialPayment = (data as any).partialPayment;
+    const installmentData = (data as any).installment;
     let amountForThaiText = finalTotal;
     if (partialPayment?.enabled && partialPayment.value > 0) {
+      const baseAmount = installmentData?.remainingAmount || finalTotal;
       const paymentAmount = partialPayment.type === 'percent' 
-        ? finalTotal * partialPayment.value / 100 
+        ? baseAmount * partialPayment.value / 100 
         : partialPayment.value;
       const paymentLabel = partialPayment.type === 'percent' 
         ? `งวดนี้ชำระ ${partialPayment.value}%` 
         : 'งวดนี้ชำระ';
+      
+      let remainingInfo = '';
+      if (installmentData?.isInstallment) {
+        const remaining = installmentData.totalContractAmount - installmentData.paidToDate - paymentAmount;
+        remainingInfo = `
+          <div class="summary-row" style="color: #666; font-size: 0.9em;">
+            <span>ยอดสัญญา</span>
+            <span class="amount">${formatNumber(installmentData.totalContractAmount)}</span>
+          </div>
+          <div class="summary-row" style="color: #666; font-size: 0.9em;">
+            <span>ชำระแล้ว</span>
+            <span class="amount">${formatNumber(installmentData.paidToDate)}</span>
+          </div>
+          <div class="summary-row" style="color: #e67e22; font-size: 0.9em;">
+            <span>ยอดคงเหลือหลังงวดนี้</span>
+            <span class="amount">${formatNumber(remaining > 0 ? remaining : 0)}</span>
+          </div>
+        `;
+      }
+      
       html = html.replace(/\{\{partialPaymentRow\}\}/g, `
         <div class="summary-row highlight">
           <span>${paymentLabel}</span>
           <span class="amount">${formatNumber(paymentAmount)}</span>
         </div>
+        ${remainingInfo}
       `);
       html = html.replace(/\{\{partialPaymentAmount\}\}/g, formatNumber(paymentAmount));
       amountForThaiText = paymentAmount;
@@ -301,19 +324,42 @@ async function injectDataIntoTemplate(
     
     // Partial payment (legacy mode)
     const partialPayment = (data as any).partialPayment;
+    const installmentData = (data as any).installment;
     let amountForThaiText = finalTotal;
     if (partialPayment?.enabled && partialPayment.value > 0) {
+      const baseAmount = installmentData?.remainingAmount || finalTotal;
       const paymentAmount = partialPayment.type === 'percent' 
-        ? finalTotal * partialPayment.value / 100 
+        ? baseAmount * partialPayment.value / 100 
         : partialPayment.value;
       const paymentLabel = partialPayment.type === 'percent' 
         ? `งวดนี้ชำระ ${partialPayment.value}%` 
         : 'งวดนี้ชำระ';
+      
+      let remainingInfo = '';
+      if (installmentData?.isInstallment) {
+        const remaining = installmentData.totalContractAmount - installmentData.paidToDate - paymentAmount;
+        remainingInfo = `
+          <div class="summary-row" style="color: #666; font-size: 0.9em;">
+            <span>ยอดสัญญา</span>
+            <span class="amount">${formatNumber(installmentData.totalContractAmount)}</span>
+          </div>
+          <div class="summary-row" style="color: #666; font-size: 0.9em;">
+            <span>ชำระแล้ว</span>
+            <span class="amount">${formatNumber(installmentData.paidToDate)}</span>
+          </div>
+          <div class="summary-row" style="color: #e67e22; font-size: 0.9em;">
+            <span>ยอดคงเหลือหลังงวดนี้</span>
+            <span class="amount">${formatNumber(remaining > 0 ? remaining : 0)}</span>
+          </div>
+        `;
+      }
+      
       html = html.replace(/\{\{partialPaymentRow\}\}/g, `
         <div class="summary-row highlight">
           <span>${paymentLabel}</span>
           <span class="amount">${formatNumber(paymentAmount)}</span>
         </div>
+        ${remainingInfo}
       `);
       html = html.replace(/\{\{partialPaymentAmount\}\}/g, formatNumber(paymentAmount));
       amountForThaiText = paymentAmount;

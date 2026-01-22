@@ -190,6 +190,7 @@ export function PreviewStep() {
           installmentNumber: installment.installmentNumber,
           totalContractAmount: installment.totalContractAmount,
           paidToDate: installment.paidToDate,
+          remainingAmount: installment.remainingAmount,
           parentChainId: installment.parentChainId,
         },
       } : {}),
@@ -415,16 +416,25 @@ export function PreviewStep() {
             <span className="text-primary">{formatNumber(breakdown.total)} บาท</span>
           </div>
 
-          {document.partialPayment?.enabled && document.partialPayment.value > 0 && (
-            <div className="flex justify-between text-sm font-medium text-blue-600 bg-blue-50 p-2 rounded -mx-2">
-              <span>งวดนี้ชำระ {document.partialPayment.type === 'percent' ? `${document.partialPayment.value}%` : ''}</span>
-              <span>{formatNumber(
-                document.partialPayment.type === 'percent' 
-                  ? breakdown.total * document.partialPayment.value / 100 
-                  : document.partialPayment.value
-              )} บาท</span>
-            </div>
-          )}
+          {document.partialPayment?.enabled && document.partialPayment.value > 0 && (() => {
+            const baseAmount = installment.isInstallment && installment.remainingAmount > 0 
+              ? installment.remainingAmount 
+              : breakdown.total;
+            const paymentAmount = document.partialPayment.type === 'percent'
+              ? baseAmount * document.partialPayment.value / 100
+              : document.partialPayment.value;
+            return (
+              <div className="flex justify-between text-sm font-medium text-blue-600 bg-blue-50 p-2 rounded -mx-2">
+                <span>
+                  งวดนี้ชำระ {document.partialPayment.type === 'percent' ? `${document.partialPayment.value}%` : ''}
+                  {installment.isInstallment && document.partialPayment.type === 'percent' && (
+                    <span className="text-xs text-blue-400 ml-1">(ของ ฿{formatNumber(baseAmount)} คงเหลือ)</span>
+                  )}
+                </span>
+                <span>{formatNumber(paymentAmount)} บาท</span>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Notes */}

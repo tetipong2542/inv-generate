@@ -568,10 +568,12 @@ app.post('/:id/create-linked', async (c) => {
       }
       
       const partialPayment = sourceDoc.partialPayment;
+      const installmentData = sourceDoc.installment;
+      const baseAmount = installmentData?.remainingAmount || total;
       let actualPaidAmount = total;
       if (partialPayment?.enabled) {
         if (partialPayment.type === 'percent') {
-          actualPaidAmount = total * (partialPayment.value / 100);
+          actualPaidAmount = baseAmount * (partialPayment.value / 100);
         } else if (partialPayment.type === 'fixed') {
           actualPaidAmount = partialPayment.value;
         }

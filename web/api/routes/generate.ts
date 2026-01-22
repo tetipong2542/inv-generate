@@ -524,6 +524,7 @@ app.post('/', async (c) => {
             installmentNumber: installment.installmentNumber || 1,
             totalContractAmount: installment.totalContractAmount || 0,
             paidToDate: installment.paidToDate || 0,
+            remainingAmount: (installment.totalContractAmount || 0) - (installment.paidToDate || 0),
             parentChainId: installment.parentChainId || chainId || null,
           },
         } : {}),
