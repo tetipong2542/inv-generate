@@ -42,6 +42,7 @@ async function migrateLegacyConfig() {
         address: legacyData.address,
         taxId: legacyData.taxId,
         signature: legacyData.signature,
+        paymentQr: legacyData.paymentQr,
         bankInfo: legacyData.bankInfo,
       });
       console.log('Migrated legacy freelancer.json to SQLite');
@@ -158,6 +159,7 @@ app.post('/', async (c) => {
         address: data.address,
         taxId: data.taxId,
         signature: data.signature,
+        paymentQr: data.paymentQr,
         bankInfo: data.bankInfo,
       });
       return c.json({ success: true, data: { id, ...data } }, 201);
@@ -199,6 +201,7 @@ app.put('/:id', async (c) => {
         address: body.address,
         taxId: body.taxId,
         signature: body.signature,
+        paymentQr: body.paymentQr,
         bankInfo: body.bankInfo,
       });
       return c.json({ success: true, data: { id, ...body } });

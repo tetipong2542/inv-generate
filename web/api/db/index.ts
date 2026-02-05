@@ -72,6 +72,7 @@ function initializeTables(db: Database) {
       address TEXT NOT NULL,
       tax_id TEXT NOT NULL,
       signature TEXT,
+      payment_qr TEXT,
       bank_info TEXT NOT NULL,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -108,6 +109,11 @@ function initializeTables(db: Database) {
   // Migration: Add archived_at column to documents table
   try {
     db.exec(`ALTER TABLE documents ADD COLUMN archived_at TEXT`);
+  } catch (e) { /* column already exists */ }
+
+  // Migration: Add payment_qr column to freelancers table
+  try {
+    db.exec(`ALTER TABLE freelancers ADD COLUMN payment_qr TEXT`);
   } catch (e) { /* column already exists */ }
 
   // Migration: Recreate services table if it has old schema (unit column should not exist)
@@ -329,6 +335,7 @@ export interface FreelancerRow {
   address: string;
   tax_id: string;
   signature: string | null;
+  payment_qr: string | null;
   bank_info: string;
   created_at: string;
   updated_at: string;
@@ -353,12 +360,13 @@ export async function createFreelancer(freelancer: {
   address: string;
   tax_id: string;
   signature?: string;
+  payment_qr?: string;
   bank_info: object;
 }): Promise<void> {
   const db = await getDatabase();
   db.query(`
-    INSERT INTO freelancers (id, name, title, email, phone, address, tax_id, signature, bank_info)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO freelancers (id, name, title, email, phone, address, tax_id, signature, payment_qr, bank_info)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     freelancer.id,
     freelancer.name,
@@ -368,6 +376,7 @@ export async function createFreelancer(freelancer: {
     freelancer.address,
     freelancer.tax_id,
     freelancer.signature || null,
+    freelancer.payment_qr || null,
     JSON.stringify(freelancer.bank_info)
   );
 }
@@ -380,6 +389,7 @@ export async function updateFreelancer(id: string, freelancer: Partial<{
   address: string;
   tax_id: string;
   signature: string;
+  payment_qr: string;
   bank_info: object;
 }>): Promise<void> {
   const db = await getDatabase();
@@ -393,6 +403,7 @@ export async function updateFreelancer(id: string, freelancer: Partial<{
   if (freelancer.address !== undefined) { sets.push('address = ?'); values.push(freelancer.address); }
   if (freelancer.tax_id !== undefined) { sets.push('tax_id = ?'); values.push(freelancer.tax_id); }
   if (freelancer.signature !== undefined) { sets.push('signature = ?'); values.push(freelancer.signature); }
+  if (freelancer.payment_qr !== undefined) { sets.push('payment_qr = ?'); values.push(freelancer.payment_qr); }
   if (freelancer.bank_info !== undefined) { sets.push('bank_info = ?'); values.push(JSON.stringify(freelancer.bank_info)); }
 
   values.push(id);
@@ -555,6 +566,7 @@ export function freelancerRowToApi(row: FreelancerRow): any {
     address: row.address,
     taxId: row.tax_id,
     signature: row.signature,
+    paymentQr: row.payment_qr,
     bankInfo: JSON.parse(row.bank_info),
   };
 }

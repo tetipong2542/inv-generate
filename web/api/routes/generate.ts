@@ -17,6 +17,7 @@ const USE_REPO = process.env.USE_SQLITE === 'true' || process.env.RAILWAY_ENVIRO
 const DATA_DIR = process.env.RAILWAY_ENVIRONMENT ? '/data' : PROJECT_ROOT;
 const OUTPUT_DIR = path.join(DATA_DIR, 'output');
 const SIGNATURES_DIR = path.join(DATA_DIR, 'signatures');
+const PAYMENT_QR_DIR = path.join(DATA_DIR, 'payment-qr');
 
 const app = new Hono();
 
@@ -427,6 +428,23 @@ app.post('/', async (c) => {
       const signatureFile = Bun.file(fullSignaturePath);
       if (await signatureFile.exists()) {
         freelancerConfig.signature = fullSignaturePath;
+      }
+    }
+
+    // Resolve payment QR path if exists
+    if (freelancerConfig.paymentQr) {
+      // If it's a relative path like "payment-qr/qr_xxx.png", resolve to absolute
+      if (!path.isAbsolute(freelancerConfig.paymentQr)) {
+        // Extract just the filename from the path
+        const filename = path.basename(freelancerConfig.paymentQr);
+        const fullQrPath = path.join(PAYMENT_QR_DIR, filename);
+        const qrFile = Bun.file(fullQrPath);
+        if (await qrFile.exists()) {
+          freelancerConfig.paymentQr = fullQrPath;
+        } else {
+          console.warn(`Payment QR not found: ${fullQrPath}`);
+          freelancerConfig.paymentQr = undefined;
+        }
       }
     }
 

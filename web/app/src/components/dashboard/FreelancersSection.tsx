@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Pencil, Trash2, Check, Search, Phone, Mail } from 'lucide-react';
+import { Plus, Pencil, Trash2, Check, Search, Phone, Mail, Upload, X, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,14 @@ import { useApi } from '@/hooks/useApi';
 import { useDashboardStore } from '@/hooks/useDashboardStore';
 import type { FreelancerConfig } from '@/types';
 import { cn } from '@/lib/utils';
+
+const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:3001/api';
+
+interface QrImage {
+  filename: string;
+  url: string;
+  path: string;
+}
 
 const emptyFreelancer: FreelancerConfig & { id?: string } = {
   id: '',
@@ -40,6 +48,10 @@ export function FreelancersSection() {
   const [editingItem, setEditingItem] = useState<(FreelancerConfig & { id?: string }) | null>(null);
   const [formData, setFormData] = useState(emptyFreelancer);
   const [searchTerm, setSearchTerm] = useState('');
+  const [uploadingQr, setUploadingQr] = useState(false);
+  const [qrPreview, setQrPreview] = useState<string | null>(null);
+  const [showQrGallery, setShowQrGallery] = useState(false);
+  const [qrImages, setQrImages] = useState<QrImage[]>([]);
 
   // Filter freelancers based on search
   const filteredFreelancers = useMemo(() => {
@@ -70,13 +82,91 @@ export function FreelancersSection() {
   const openCreate = () => {
     setEditingItem(null);
     setFormData({ ...emptyFreelancer, id: `freelancer-${Date.now()}` });
+    setQrPreview(null);
     setIsModalOpen(true);
   };
 
   const openEdit = (item: FreelancerConfig & { id?: string }) => {
     setEditingItem(item);
     setFormData(item);
+    setQrPreview(item.paymentQr ? `/api/payment-qr/file/${item.paymentQr.replace('payment-qr/', '')}` : null);
     setIsModalOpen(true);
+  };
+
+  const handleQrUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadingQr(true);
+    try {
+      const formDataUpload = new FormData();
+      formDataUpload.append('paymentQr', file);
+
+      const response = await fetch(`${API_BASE}/payment-qr/upload`, {
+        method: 'POST',
+        body: formDataUpload,
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setFormData({ ...formData, paymentQr: `payment-qr/${data.data.filename}` });
+        setQrPreview(data.data.url);
+      } else {
+        alert(data.error || 'อัปโหลดไม่สำเร็จ');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('เกิดข้อผิดพลาดในการอัปโหลด');
+    } finally {
+      setUploadingQr(false);
+    }
+  };
+
+  const loadQrGallery = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/payment-qr`);
+      const data = await response.json();
+      if (data.success) {
+        setQrImages(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to load QR gallery:', error);
+    }
+  };
+
+  const handleSelectQr = (qr: QrImage) => {
+    setFormData({ ...formData, paymentQr: `payment-qr/${qr.filename}` });
+    setQrPreview(qr.url);
+    setShowQrGallery(false);
+  };
+
+  const handleDeleteQr = () => {
+    setFormData({ ...formData, paymentQr: undefined });
+    setQrPreview(null);
+  };
+
+  const handleDeleteQrFromGallery = async (filename: string) => {
+    if (!confirm('ยืนยันการลบ QR Code นี้ออกจากระบบ?')) return;
+    
+    try {
+      const response = await fetch(`${API_BASE}/payment-qr/${filename}`, {
+        method: 'DELETE',
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        await loadQrGallery();
+        if (formData.paymentQr?.includes(filename)) {
+          setFormData({ ...formData, paymentQr: undefined });
+          setQrPreview(null);
+        }
+      } else {
+        alert(data.error || 'ลบไม่สำเร็จ');
+      }
+    } catch (error) {
+      console.error('Delete QR error:', error);
+      alert('เกิดข้อผิดพลาดในการลบ');
+    }
   };
 
   const handleSave = async () => {
@@ -318,6 +408,95 @@ export function FreelancersSection() {
                     })
                   }
                 />
+              </div>
+              <div className="mt-3">
+                <Label>QR Code สำหรับชำระเงิน</Label>
+                <div className="flex items-start gap-2">
+                  <div className="flex-1 space-y-2">
+                    <Input
+                      type="file"
+                      accept="image/png,image/jpeg,image/jpg"
+                      onChange={handleQrUpload}
+                      disabled={uploadingQr}
+                      className="cursor-pointer"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        setShowQrGallery(!showQrGallery);
+                        if (!showQrGallery) loadQrGallery();
+                      }}
+                    >
+                      <Image className="h-4 w-4 mr-1" />
+                      เลือกจาก Gallery
+                    </Button>
+                    {uploadingQr && (
+                      <p className="text-sm text-gray-500">กำลังอัปโหลด...</p>
+                    )}
+                  </div>
+                  {qrPreview && (
+                    <div className="flex-shrink-0 relative group">
+                      <img 
+                        src={qrPreview} 
+                        alt="Payment QR Code" 
+                        className="w-20 h-20 object-cover border rounded p-1 bg-white"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute -top-2 -right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={handleDeleteQr}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                {showQrGallery && (
+                  <div className="mt-3 p-3 border rounded bg-gray-50 max-h-48 overflow-y-auto">
+                    <div className="grid grid-cols-4 gap-2">
+                      {qrImages.map((qr) => (
+                        <div
+                          key={qr.filename}
+                          className="relative group"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => handleSelectQr(qr)}
+                            className="w-full border rounded p-1 hover:border-blue-500 transition-colors bg-white"
+                          >
+                            <img 
+                              src={qr.url} 
+                              alt={qr.filename}
+                              className="w-full h-16 object-cover"
+                            />
+                          </button>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute -top-1 -right-1 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteQrFromGallery(qr.filename);
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                      {qrImages.length === 0 && (
+                        <p className="col-span-4 text-center text-sm text-gray-500 py-4">
+                          ยังไม่มี QR Code
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

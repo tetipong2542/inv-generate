@@ -268,6 +268,7 @@ export interface Freelancer {
   address: string;
   taxId: string;
   signature?: string;
+  paymentQr?: string;
   bankInfo: {
     bankName: string;
     accountName: string;
@@ -329,6 +330,7 @@ export const freelancersRepo = {
         address: freelancer.address,
         tax_id: freelancer.taxId,
         signature: freelancer.signature,
+        payment_qr: freelancer.paymentQr,
         bank_info: freelancer.bankInfo,
       });
       return;
@@ -349,6 +351,7 @@ export const freelancersRepo = {
         address: updates.address,
         tax_id: updates.taxId,
         signature: updates.signature,
+        payment_qr: updates.paymentQr,
         bank_info: updates.bankInfo,
       });
       return;

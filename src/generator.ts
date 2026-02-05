@@ -19,25 +19,23 @@ import type {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-/**
- * Load signature image as base64 data URI
- */
-async function loadSignatureBase64(
-  signaturePath: string
+async function loadImageAsBase64(
+  imagePath: string,
+  imageType: string
 ): Promise<string | null> {
   try {
-    const file = Bun.file(signaturePath);
+    const file = Bun.file(imagePath);
     if (!(await file.exists())) {
-      console.warn(`Warning: Signature file not found: ${signaturePath}`);
+      console.warn(`Warning: ${imageType} file not found: ${imagePath}`);
       return null;
     }
     const buffer = await file.arrayBuffer();
     const base64 = Buffer.from(buffer).toString("base64");
-    const ext = signaturePath.split(".").pop()?.toLowerCase();
+    const ext = imagePath.split(".").pop()?.toLowerCase();
     const mimeType = ext === "png" ? "image/png" : "image/jpeg";
     return `data:${mimeType};base64,${base64}`;
   } catch (error) {
-    console.warn(`Warning: Failed to load signature: ${error}`);
+    console.warn(`Warning: Failed to load ${imageType}: ${error}`);
     return null;
   }
 }
@@ -51,6 +49,7 @@ async function injectDataIntoTemplate(
   customer: Customer,
   config: FreelancerConfig,
   signatureDataUri: string | null,
+  paymentQrDataUri: string | null,
   documentType: "invoice" | "quotation" | "receipt"
 ): Promise<string> {
   let html = template;
@@ -427,8 +426,17 @@ async function injectDataIntoTemplate(
       `<img src="${signatureDataUri}" alt="Signature" style="max-width: 200px; height: auto;">`
     );
   } else {
-    // Leave blank for manual signing
     html = html.replace(/\{\{signature\}\}/g, "");
+  }
+
+  // Payment QR Code
+  if (paymentQrDataUri) {
+    html = html.replace(
+      /\{\{paymentQr\}\}/g,
+      `<img src="${paymentQrDataUri}" alt="Payment QR Code" style="max-width: 160px; height: auto; display: block; margin-top: 10px; border: 1px solid #e0e0e0; padding: 4px; border-radius: 4px; background: white;">`
+    );
+  } else {
+    html = html.replace(/\{\{paymentQr\}\}/g, "");
   }
 
   return html;
@@ -484,13 +492,15 @@ export async function generatePDF(
 
   const template = await templateFile.text();
 
-  // Load signature if provided
   const signatureDataUri = config.signature
-    ? await loadSignatureBase64(config.signature)
+    ? await loadImageAsBase64(config.signature, "signature")
     : null;
 
-  // Inject data into template
-  const html = await injectDataIntoTemplate(template, data, customer, config, signatureDataUri, type);
+  const paymentQrDataUri = config.paymentQr
+    ? await loadImageAsBase64(config.paymentQr, "payment QR code")
+    : null;
+
+  const html = await injectDataIntoTemplate(template, data, customer, config, signatureDataUri, paymentQrDataUri, type);
 
   // Launch Puppeteer
   const browser = await puppeteer.launch({

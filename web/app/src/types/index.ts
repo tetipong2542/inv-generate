@@ -34,6 +34,7 @@ export interface FreelancerConfig {
   address: string;
   taxId: string;
   signature?: string;
+  paymentQr?: string;
   bankInfo: BankInfo;
 }
 

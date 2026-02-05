@@ -11,6 +11,7 @@ import config from './routes/config';
 import chat from './routes/chat';
 import ai from './routes/ai';
 import signatures from './routes/signatures';
+import paymentQr from './routes/payment-qr';
 import freelancers from './routes/freelancers';
 import services from './routes/services';
 
@@ -104,6 +105,7 @@ app.route('/api/config', config);
 app.route('/api/chat', chat);
 app.route('/api/ai', ai);
 app.route('/api/signatures', signatures);
+app.route('/api/payment-qr', paymentQr);
 app.route('/api/freelancers', freelancers);
 app.route('/api/services', services);
 

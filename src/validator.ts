@@ -53,6 +53,7 @@ export interface FreelancerConfig {
   address: string;
   taxId: string;
   signature?: string; // Optional path to signature image file
+  paymentQr?: string; // Optional path to payment QR code image file
   bankInfo: {
     bankName: string;
     accountName: string;
