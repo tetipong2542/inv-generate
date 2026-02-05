@@ -591,17 +591,18 @@ export async function generatePDF(
         return `${pageBreak}<tr><td>${idx + 1}</td><td class="description-cell">${desc}</td><td class="text-center">${item.quantity} ${item.unit}</td><td class="text-right">${formatNumber(item.unitPrice)}</td><td class="text-right">${formatNumber(lineTotal)}</td></tr>`;
       }).join('');
       
-      const newHtml = await injectDataIntoTemplate(
-        template,
-        { ...data, items: [] as any },
+      let templateWithBreak = template;
+      templateWithBreak = templateWithBreak.replace(/\{\{items\}\}/g, itemsWithBreak);
+      
+      const finalHtml = await injectDataIntoTemplate(
+        templateWithBreak,
+        data,
         customer,
         config,
         signatureDataUri,
         paymentQrDataUri,
         type
       );
-      
-      const finalHtml = newHtml.replace(/\{\{items\}\}/g, itemsWithBreak);
       
       await page.setContent(finalHtml, {
         waitUntil: "networkidle0",
