@@ -312,7 +312,7 @@
             page-break-inside: avoid;
             page-break-before: auto;
         }
-        
+
         /* Force summary to stay with last items */
         .invoice-items {
             page-break-after: avoid;
@@ -343,11 +343,13 @@
 
         /* Page margins for print */
         @page {
-            margin-top: 15mm; /* Extra top margin for continuation pages (page 2+) */
+            margin-top: 15mm;
+            /* Extra top margin for continuation pages (page 2+) */
         }
 
         @page :first {
-            margin-top: 0; /* No extra margin on first page (has document header) */
+            margin-top: 0;
+            /* No extra margin on first page (has document header) */
         }
     </style>
 </head>
@@ -443,7 +445,8 @@
         <!-- Footer Group: Signature + Payment + Notes -->
         <div class="footer-group">
             <!-- Signature -->
-            <div class="signature-section" style="display: flex; justify-content: flex-end; margin-bottom: 15px; margin-top: -5px;">
+            <div class="signature-section"
+                style="display: flex; justify-content: flex-end; margin-bottom: 15px; margin-top: -5px;">
                 <div
                     style="text-align: center; min-height: 100px; display: flex; flex-direction: column; justify-content: flex-end;">
                     {{signature}}
@@ -475,7 +478,7 @@
 
             <!-- Footer -->
             <div class="invoice-footer">
-                <p><strong>{{notes}}</strong></p>
+                <p style="text-align: left;">{{notes}}</p>
             </div>
         </div>
     </div>
