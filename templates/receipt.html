@@ -336,11 +336,15 @@
                 box-shadow: none;
                 padding: 20px;
             }
+        }
 
-            /* Add top spacing when table header repeats on continuation pages */
-            table thead th {
-                padding-top: 21px; /* 6px + 15px extra spacing */
-            }
+        /* Page margins for print */
+        @page {
+            margin-top: 15mm; /* Extra top margin for continuation pages (page 2+) */
+        }
+
+        @page :first {
+            margin-top: 0; /* No extra margin on first page (has document header) */
         }
     </style>
 </head>
