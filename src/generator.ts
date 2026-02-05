@@ -511,12 +511,103 @@ export async function generatePDF(
   try {
     const page = await browser.newPage();
 
-    // Set content
     await page.setContent(html, {
       waitUntil: "networkidle0",
     });
 
-    // Generate PDF in A4 format
+    const pageBreakInfo = await page.evaluate(() => {
+      const A4_HEIGHT = 1123;
+      const MIN_FOOTER_SPACE = 400;
+      
+      const header = document.querySelector('.invoice-header') as HTMLElement;
+      const tbody = document.querySelector('.invoice-items tbody') as HTMLElement;
+      const summary = document.querySelector('.summary-container') as HTMLElement;
+      const footerGroup = document.querySelector('.footer-group') as HTMLElement;
+      
+      if (!header || !tbody || !summary || !footerGroup) {
+        return { needsBreak: false, breakIndex: -1, debug: 'missing elements' };
+      }
+      
+      const headerH = header.getBoundingClientRect().height;
+      const summaryH = summary.getBoundingClientRect().height;
+      const footerH = footerGroup.getBoundingClientRect().height;
+      
+      const rows = Array.from(tbody.querySelectorAll('tr')) as HTMLTableRowElement[];
+      if (rows.length < 3) {
+        return { needsBreak: false, breakIndex: -1, debug: `only ${rows.length} rows` };
+      }
+      
+      const rowHeights = rows.map(r => r.getBoundingClientRect().height);
+      const totalItemsHeight = rowHeights.reduce((sum, h) => sum + h, 0);
+      
+      const totalHeight = headerH + totalItemsHeight + summaryH + footerH + 80;
+      
+      const availableForItems = A4_HEIGHT - headerH - summaryH - footerH - 100;
+      
+      if (totalItemsHeight <= availableForItems) {
+        return { 
+          needsBreak: false, 
+          breakIndex: -1, 
+          debug: `fits: ${totalItemsHeight} <= ${availableForItems}` 
+        };
+      }
+      
+      let cumHeight = 0;
+      let breakIndex = rows.length - 2;
+      
+      for (let i = 0; i < rowHeights.length; i++) {
+        const height = rowHeights[i];
+        if (height === undefined) continue;
+        cumHeight += height;
+        
+        if (cumHeight > availableForItems - MIN_FOOTER_SPACE) {
+          breakIndex = Math.max(1, Math.min(i - 1, rows.length - 2));
+          break;
+        }
+      }
+      
+      return { 
+        needsBreak: true, 
+        breakIndex,
+        debug: `total: ${totalHeight}, available: ${availableForItems}, break at: ${breakIndex}`
+      };
+    });
+
+    console.log('Page break detection:', pageBreakInfo);
+
+    if (pageBreakInfo.needsBreak && pageBreakInfo.breakIndex > 0) {
+      console.log(`Breaking at index ${pageBreakInfo.breakIndex} out of ${data.items.length} items`);
+      
+      const itemsWithBreak = data.items.map((item, idx) => {
+        const lineTotal = item.quantity * item.unitPrice;
+        const desc = item.details 
+          ? `<span class="item-main"><strong>${item.description}</strong></span><br><span class="item-details">${item.details}</span>`
+          : `<span class="item-main"><strong>${item.description}</strong></span>`;
+        
+        const pageBreak = idx === pageBreakInfo.breakIndex 
+          ? '</tbody></table></div><div style="page-break-before: always;"></div><div class="invoice-items"><table><thead><tr><th style="width: 5%;">ลำดับ</th><th style="width: 55%;">รายการ</th><th style="width: 15%; text-align: center;">จำนวน</th><th style="width: 13%; text-align: right;">ราคา</th><th style="width: 12%; text-align: right;">รวม</th></tr></thead><tbody>' 
+          : '';
+        
+        return `${pageBreak}<tr><td>${idx + 1}</td><td class="description-cell">${desc}</td><td class="text-center">${item.quantity} ${item.unit}</td><td class="text-right">${formatNumber(item.unitPrice)}</td><td class="text-right">${formatNumber(lineTotal)}</td></tr>`;
+      }).join('');
+      
+      const newHtml = await injectDataIntoTemplate(
+        template,
+        { ...data, items: [] as any },
+        customer,
+        config,
+        signatureDataUri,
+        paymentQrDataUri,
+        type
+      );
+      
+      const finalHtml = newHtml.replace(/\{\{items\}\}/g, itemsWithBreak);
+      
+      await page.setContent(finalHtml, {
+        waitUntil: "networkidle0",
+      });
+    }
+
     await page.pdf({
       path: outputPath,
       format: "A4",

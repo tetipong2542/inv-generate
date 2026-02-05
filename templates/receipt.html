@@ -164,6 +164,25 @@
             border-bottom: none;
         }
 
+        /* Smart page breaking for table rows */
+        table tbody tr {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        /* Encourage keeping last 2 rows with footer */
+        table tbody tr:nth-last-child(1),
+        table tbody tr:nth-last-child(2) {
+            page-break-after: avoid;
+            break-after: avoid;
+        }
+
+        /* Orphans and widows control */
+        table tbody {
+            orphans: 3;
+            widows: 3;
+        }
+
         .text-right {
             text-align: right;
         }
@@ -235,6 +254,7 @@
             margin-bottom: 10px;
             padding-top: 10px;
             border-top: 0.5px solid #ecf0f1;
+            page-break-inside: avoid;
         }
 
         .payment-left, .payment-right {
@@ -281,6 +301,22 @@
             text-align: center;
             font-size: 11px;
             color: #999;
+            page-break-inside: avoid;
+        }
+
+        /* Summary section - keep together */
+        .summary-container {
+            page-break-inside: avoid;
+        }
+
+        /* Signature section - keep together */
+        .signature-section {
+            page-break-inside: avoid;
+        }
+
+        /* Keep footer sections together */
+        .footer-group {
+            page-break-inside: avoid;
         }
 
         /* Print Styles */
@@ -371,7 +407,7 @@
         </div>
 
         <!-- Summary -->
-        <div class="invoice-summary">
+        <div class="invoice-summary summary-container">
             <div class="summary-box">
                 <div class="summary-row">
                     <span>รวมเป็นเงิน</span>
@@ -393,39 +429,42 @@
             </div>
         </div>
 
-        <!-- Signature -->
-        <div style="display: flex; justify-content: flex-end; margin-bottom: 15px; margin-top: -5px;">
-            <div style="text-align: center; min-height: 100px; display: flex; flex-direction: column; justify-content: flex-end;">
-                {{signature}}
-                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #999; min-width: 220px;">
-                    <div style="font-size: 11px; color: #666; margin-bottom: 2px;">({{freelancer.name}})</div>
-                    <div style="font-size: 10px; color: #999;">ผู้รับเงิน</div>
+        <!-- Footer Group: Signature + Payment + Notes -->
+        <div class="footer-group">
+            <!-- Signature -->
+            <div class="signature-section" style="display: flex; justify-content: flex-end; margin-bottom: 15px; margin-top: -5px;">
+                <div style="text-align: center; min-height: 100px; display: flex; flex-direction: column; justify-content: flex-end;">
+                    {{signature}}
+                    <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #999; min-width: 220px;">
+                        <div style="font-size: 11px; color: #666; margin-bottom: 2px;">({{freelancer.name}})</div>
+                        <div style="font-size: 10px; color: #999;">ผู้รับเงิน</div>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Payment Terms & Bank Info -->
-        <div class="payment-section">
-            <div class="payment-left">
-                <h3>เงื่อนไขการจ่ายเงิน</h3>
-                <ul>
-                    {{paymentTerms}}
-                </ul>
+            <!-- Payment Terms & Bank Info -->
+            <div class="payment-section">
+                <div class="payment-left">
+                    <h3>เงื่อนไขการจ่ายเงิน</h3>
+                    <ul>
+                        {{paymentTerms}}
+                    </ul>
+                </div>
+                <div class="payment-right">
+                    <h3>ข้อมูลธนาคาร</h3>
+                    <p>
+                        ธนาคาร: {{bank.name}}<br>
+                        ชื่อบัญชี: {{bank.accountName}}<br>
+                        เลขบัญชี: {{bank.accountNumber}}
+                    </p>
+                    {{paymentQr}}
+                </div>
             </div>
-            <div class="payment-right">
-                <h3>ข้อมูลธนาคาร</h3>
-                <p>
-                    ธนาคาร: {{bank.name}}<br>
-                    ชื่อบัญชี: {{bank.accountName}}<br>
-                    เลขบัญชี: {{bank.accountNumber}}
-                </p>
-                {{paymentQr}}
-            </div>
-        </div>
 
-        <!-- Footer -->
-        <div class="invoice-footer">
-            <p><strong>{{notes}}</strong></p>
+            <!-- Footer -->
+            <div class="invoice-footer">
+                <p><strong>{{notes}}</strong></p>
+            </div>
         </div>
     </div>
 </body>
