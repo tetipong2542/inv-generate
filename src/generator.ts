@@ -416,8 +416,12 @@ async function injectDataIntoTemplate(
     html = html.replace(/\{\{totalInWords\}\}/g, bahtText(amountForThaiText));
   }
 
-  // Notes
-  html = html.replace(/\{\{notes\}\}/g, data.notes || "");
+  // Notes - convert newlines and <br> to HTML line breaks
+  const formattedNotes = (data.notes || "")
+    .replace(/\r\n/g, "\n") // Normalize Windows line endings
+    .replace(/\n/g, "<br>") // Convert newlines to <br>
+    .replace(/<br\s*\/?>/gi, "<br>"); // Normalize <br> tags
+  html = html.replace(/\{\{notes\}\}/g, formattedNotes);
 
   // Signature
   if (signatureDataUri) {
