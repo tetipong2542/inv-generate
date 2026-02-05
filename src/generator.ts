@@ -517,7 +517,7 @@ export async function generatePDF(
 
     const pageBreakInfo = await page.evaluate(() => {
       const A4_HEIGHT = 1123;
-      const MIN_FOOTER_SPACE = 400;
+      const FOOTER_HEIGHT_ESTIMATE = 450;
       
       const header = document.querySelector('.invoice-header') as HTMLElement;
       const tbody = document.querySelector('.invoice-items tbody') as HTMLElement;
@@ -529,6 +529,7 @@ export async function generatePDF(
       }
       
       const headerH = header.getBoundingClientRect().height;
+      const tableHeaderH = 40;
       const summaryH = summary.getBoundingClientRect().height;
       const footerH = footerGroup.getBoundingClientRect().height;
       
@@ -540,28 +541,32 @@ export async function generatePDF(
       const rowHeights = rows.map(r => r.getBoundingClientRect().height);
       const totalItemsHeight = rowHeights.reduce((sum, h) => sum + h, 0);
       
-      const totalHeight = headerH + totalItemsHeight + summaryH + footerH + 80;
+      const page1Available = A4_HEIGHT - headerH - tableHeaderH - 40;
+      const page2Needed = summaryH + footerH + 100;
       
-      const availableForItems = A4_HEIGHT - headerH - summaryH - footerH - 100;
+      const totalContent = headerH + tableHeaderH + totalItemsHeight + summaryH + footerH + 80;
       
-      if (totalItemsHeight <= availableForItems) {
+      if (totalContent <= A4_HEIGHT) {
         return { 
           needsBreak: false, 
           breakIndex: -1, 
-          debug: `fits: ${totalItemsHeight} <= ${availableForItems}` 
+          debug: `fits in 1 page: ${totalContent} <= ${A4_HEIGHT}` 
         };
       }
       
       let cumHeight = 0;
-      let breakIndex = rows.length - 2;
+      let breakIndex = rows.length - 1;
       
       for (let i = 0; i < rowHeights.length; i++) {
         const height = rowHeights[i];
         if (height === undefined) continue;
         cumHeight += height;
         
-        if (cumHeight > availableForItems - MIN_FOOTER_SPACE) {
-          breakIndex = Math.max(1, Math.min(i - 1, rows.length - 2));
+        const remainingItems = rowHeights.slice(i + 1).reduce((s, h) => s + h, 0);
+        const page2Content = remainingItems + page2Needed;
+        
+        if (page2Content <= A4_HEIGHT - tableHeaderH - 40 && i < rows.length - 1) {
+          breakIndex = i + 1;
           break;
         }
       }
@@ -569,7 +574,7 @@ export async function generatePDF(
       return { 
         needsBreak: true, 
         breakIndex,
-        debug: `total: ${totalHeight}, available: ${availableForItems}, break at: ${breakIndex}`
+        debug: `break at index ${breakIndex}, total rows: ${rows.length}`
       };
     });
 
@@ -584,11 +589,12 @@ export async function generatePDF(
           ? `<span class="item-main"><strong>${item.description}</strong></span><br><span class="item-details">${item.details}</span>`
           : `<span class="item-main"><strong>${item.description}</strong></span>`;
         
-        const pageBreak = idx === pageBreakInfo.breakIndex 
-          ? '</tbody></table></div><div style="page-break-before: always;"></div><div class="invoice-items"><table><thead><tr><th style="width: 5%;">ลำดับ</th><th style="width: 55%;">รายการ</th><th style="width: 15%; text-align: center;">จำนวน</th><th style="width: 13%; text-align: right;">ราคา</th><th style="width: 12%; text-align: right;">รวม</th></tr></thead><tbody>' 
-          : '';
+        let pageBreakBefore = '';
+        if (idx === pageBreakInfo.breakIndex) {
+          pageBreakBefore = '<tr><td colspan="5" style="padding: 0; border: none;"><div style="page-break-after: always;"></div></td></tr>';
+        }
         
-        return `${pageBreak}<tr><td>${idx + 1}</td><td class="description-cell">${desc}</td><td class="text-center">${item.quantity} ${item.unit}</td><td class="text-right">${formatNumber(item.unitPrice)}</td><td class="text-right">${formatNumber(lineTotal)}</td></tr>`;
+        return `${pageBreakBefore}<tr><td>${idx + 1}</td><td class="description-cell">${desc}</td><td class="text-center">${item.quantity} ${item.unit}</td><td class="text-right">${formatNumber(item.unitPrice)}</td><td class="text-right">${formatNumber(lineTotal)}</td></tr>`;
       }).join('');
       
       let templateWithBreak = template;

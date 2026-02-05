@@ -310,6 +310,12 @@
         /* Summary section - keep together */
         .summary-container {
             page-break-inside: avoid;
+            page-break-before: auto;
+        }
+        
+        /* Force summary to stay with last items */
+        .invoice-items {
+            page-break-after: avoid;
         }
 
         /* Signature section - keep together */
