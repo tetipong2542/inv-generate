@@ -323,9 +323,10 @@
             page-break-inside: avoid;
         }
 
-        /* Keep footer sections together */
+        /* Allow footer sections to break across pages when needed */
         .footer-group {
-            page-break-inside: avoid;
+            /* Removed page-break-inside: avoid to prevent large empty space */
+            /* Individual sections (.signature-section, .payment-section) still avoid breaks */
         }
 
         /* Print Styles */
