@@ -17,8 +17,8 @@ const steps = [
 ];
 
 export function StepWizard() {
-  const { currentStep, setCurrentStep, loadFromDocument, loadFromLinkedDocument, setCustomer } = useFormStore();
-  const { editMode, clearEdit, linkedMode, clearLinkedDocument, customers } = useDashboardStore();
+  const { currentStep, setCurrentStep, loadFromDocument, loadFromLinkedDocument, setCustomer, setFreelancer } = useFormStore();
+  const { editMode, clearEdit, linkedMode, clearLinkedDocument, customers, freelancers } = useDashboardStore();
   const { get } = useApi();
 
   // Handle edit mode - load document data into form
@@ -30,6 +30,15 @@ export function StepWizard() {
       let customer: Customer | null = null;
       if (doc.customerId) {
         customer = customers.find(c => c.id === doc.customerId) || null;
+      }
+      
+      // Find freelancer from document's freelancerId
+      const freelancerId = (doc as any).freelancerId;
+      if (freelancerId) {
+        const freelancer = freelancers.find(f => f.id === freelancerId);
+        if (freelancer) {
+          setFreelancer(freelancer);
+        }
       }
       
       // Load document data into form
@@ -44,11 +53,21 @@ export function StepWizard() {
   useEffect(() => {
     if (linkedMode.isCreatingLinked && linkedMode.sourceDocument && linkedMode.targetType && linkedMode.linkedDocData) {
       const sourceDoc = linkedMode.sourceDocument;
+      const linkedData = linkedMode.linkedDocData;
       
       // Find customer from dashboard store
       let customer: Customer | null = null;
       if (sourceDoc.customerId) {
         customer = customers.find(c => c.id === sourceDoc.customerId) || null;
+      }
+      
+      // Find freelancer from source document's freelancerId
+      const freelancerId = (linkedData as any).freelancerId || (sourceDoc as any).freelancerId;
+      if (freelancerId) {
+        const freelancer = freelancers.find(f => f.id === freelancerId);
+        if (freelancer) {
+          setFreelancer(freelancer);
+        }
       }
       
       // Load linked document data into form

@@ -587,6 +587,7 @@ app.post('/:id/create-linked', async (c) => {
         taxLabel: sourceDoc.taxLabel,
         taxConfig: sourceDoc.taxConfig,
         profileId: sourceDoc.profileId,
+        freelancerId: sourceDoc.freelancerId,
         notes: sourceDoc.notes,
         paymentTerms: sourceDoc.paymentTerms,
         customerId: sourceDoc.customerId,
