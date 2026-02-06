@@ -355,7 +355,7 @@ export function FreelancerStep() {
                   id="freelancerName"
                   value={editingFreelancer.name}
                   onChange={(e) => setEditingFreelancer(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="นาย ฐิติพงศ์ มานะจิตต์"
+                  placeholder="ชื่อ-นามสกุล ผู้ออกเอกสาร"
                 />
               </div>
               <div className="space-y-2">
@@ -364,7 +364,7 @@ export function FreelancerStep() {
                   id="freelancerTitle"
                   value={editingFreelancer.title}
                   onChange={(e) => setEditingFreelancer(prev => ({ ...prev, title: e.target.value }))}
-                  placeholder="Web Developer"
+                  placeholder="ตำแหน่ง/อาชีพ"
                 />
               </div>
             </div>
@@ -397,7 +397,7 @@ export function FreelancerStep() {
                 id="freelancerAddress"
                 value={editingFreelancer.address}
                 onChange={(e) => setEditingFreelancer(prev => ({ ...prev, address: e.target.value }))}
-                placeholder="เลขที่ 123 ซ.เพชรบุรี 45 เขตราชเทวี กรุงเทพมหานคร 10400"
+                placeholder="ที่อยู่"
                 rows={2}
               />
             </div>
@@ -408,7 +408,7 @@ export function FreelancerStep() {
                 id="freelancerTaxId"
                 value={editingFreelancer.taxId}
                 onChange={(e) => setEditingFreelancer(prev => ({ ...prev, taxId: e.target.value }))}
-                placeholder="1809900958692"
+                placeholder="เลขประจำตัวผู้เสียภาษี"
               />
             </div>
 
@@ -514,7 +514,7 @@ export function FreelancerStep() {
                       ...prev, 
                       bankInfo: { ...prev.bankInfo, bankName: e.target.value } 
                     }))}
-                    placeholder="ธนาคารกสิกร"
+                    placeholder="ชื่อธนาคาร"
                   />
                 </div>
                 <div className="space-y-2">
@@ -526,7 +526,7 @@ export function FreelancerStep() {
                       ...prev, 
                       bankInfo: { ...prev.bankInfo, accountNumber: e.target.value } 
                     }))}
-                    placeholder="1623852969"
+                    placeholder="เลขที่บัญชี"
                   />
                 </div>
               </div>
@@ -540,7 +540,7 @@ export function FreelancerStep() {
                       ...prev, 
                       bankInfo: { ...prev.bankInfo, accountName: e.target.value } 
                     }))}
-                    placeholder="นาย ฐิติพงศ์ มานะจิตต์"
+                    placeholder="ชื่อบัญชี"
                   />
                 </div>
                 <div className="space-y-2">
@@ -552,7 +552,7 @@ export function FreelancerStep() {
                       ...prev, 
                       bankInfo: { ...prev.bankInfo, branch: e.target.value } 
                     }))}
-                    placeholder="สาขาสีลม"
+                    placeholder="สาขา"
                   />
                 </div>
               </div>
