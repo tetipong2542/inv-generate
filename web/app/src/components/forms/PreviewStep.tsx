@@ -186,7 +186,10 @@ export function PreviewStep() {
 
     const response = await post<{ filename: string; documentNumber: string }>('/generate', {
       type: documentType,
-      documentData: documentDataWithBase,
+      documentData: {
+        ...documentDataWithBase,
+        freelancerId: (freelancer as any)?.id,
+      },
       customerId: customer?.id,
       signaturePath: selectedSignature,
       isRevision: editing.isRevision,
