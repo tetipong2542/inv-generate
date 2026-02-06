@@ -32,7 +32,13 @@ export function FreelancerStep() {
   });
 
   useEffect(() => {
-    loadFreelancer();
+    // Only load default freelancer if not already set (e.g., from Dashboard Quick Create)
+    if (!freelancer) {
+      loadFreelancer();
+    } else {
+      // Populate form with existing freelancer data from store
+      setFormData(freelancer);
+    }
   }, []);
 
   const loadFreelancer = async () => {
