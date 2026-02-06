@@ -444,7 +444,7 @@ async function injectDataIntoTemplate(
     html = html.replace(/\{\{paymentQr\}\}/g, "");
   }
 
-  // Logo
+  // Logo - when no logo, clean up the flex wrapper structure for cleaner layout
   if (logoDataUri) {
     html = html.replace(
       /\{\{logo\}\}/g,
@@ -452,6 +452,16 @@ async function injectDataIntoTemplate(
     );
   } else {
     html = html.replace(/\{\{logo\}\}/g, "");
+    // Remove flex styling and inner wrapper div when no logo
+    html = html.replace(
+      /<div class="freelancer-info" style="display: flex; align-items: flex-start; gap: 15px;">\s*\n?\s*<div>\s*\n?\s*<h1>/g,
+      '<div class="freelancer-info">\n                <h1>'
+    );
+    // Remove the extra closing </div> from the wrapper
+    html = html.replace(
+      /<\/p>\s*\n?\s*<\/div>\s*\n?\s*<\/div>\s*\n?\s*<\/div>\s*\n?\s*<div class="invoice-title">/g,
+      '</p>\n            </div>\n            <div class="invoice-title">'
+    );
   }
 
   return html;

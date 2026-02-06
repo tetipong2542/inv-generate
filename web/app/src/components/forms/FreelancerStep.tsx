@@ -6,8 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Image, X } from 'lucide-react';
 import type { FreelancerConfig } from '@/types';
+
+const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:3001/api';
+
+interface LogoImage {
+  filename: string;
+  url: string;
+  path: string;
+}
 
 export function FreelancerStep() {
   const { freelancer, setFreelancer, nextStep } = useFormStore();
@@ -31,13 +39,20 @@ export function FreelancerStep() {
     },
   });
 
+  // Logo upload states
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [showLogoGallery, setShowLogoGallery] = useState(false);
+  const [logoImages, setLogoImages] = useState<LogoImage[]>([]);
+
   useEffect(() => {
-    // Only load default freelancer if not already set (e.g., from Dashboard Quick Create)
     if (!freelancer) {
       loadFreelancer();
     } else {
-      // Populate form with existing freelancer data from store
       setFormData(freelancer);
+      if (freelancer.logo) {
+        setLogoPreview(`/api/logos/file/${freelancer.logo.replace('logos/', '')}`);
+      }
     }
   }, []);
 
@@ -47,6 +62,9 @@ export function FreelancerStep() {
       setFormData(response.data);
       setFreelancer(response.data);
       setIsExample((response as any).isExample || false);
+      if (response.data.logo) {
+        setLogoPreview(`/api/logos/file/${response.data.logo.replace('logos/', '')}`);
+      }
     }
   };
 
@@ -77,6 +95,85 @@ export function FreelancerStep() {
   const handleNext = () => {
     setFreelancer(formData);
     nextStep();
+  };
+
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadingLogo(true);
+    try {
+      const formDataUpload = new FormData();
+      formDataUpload.append('logo', file);
+
+      const response = await fetch(`${API_BASE}/logos/upload`, {
+        method: 'POST',
+        body: formDataUpload,
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setFormData({ ...formData, logo: `logos/${data.data.filename}` });
+        setLogoPreview(data.data.url);
+        setSaved(false);
+      } else {
+        alert(data.error || 'อัปโหลดไม่สำเร็จ');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('เกิดข้อผิดพลาดในการอัปโหลด');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const loadLogoGallery = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/logos`);
+      const data = await response.json();
+      if (data.success) {
+        setLogoImages(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to load logo gallery:', error);
+    }
+  };
+
+  const handleSelectLogo = (logo: LogoImage) => {
+    setFormData({ ...formData, logo: `logos/${logo.filename}` });
+    setLogoPreview(logo.url);
+    setShowLogoGallery(false);
+    setSaved(false);
+  };
+
+  const handleDeleteLogo = () => {
+    setFormData({ ...formData, logo: undefined });
+    setLogoPreview(null);
+    setSaved(false);
+  };
+
+  const handleDeleteLogoFromGallery = async (filename: string) => {
+    if (!confirm('ยืนยันการลบโลโก้นี้ออกจากระบบ?')) return;
+    
+    try {
+      const response = await fetch(`${API_BASE}/logos/${filename}`, {
+        method: 'DELETE',
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        await loadLogoGallery();
+        if (formData.logo?.includes(filename)) {
+          setFormData({ ...formData, logo: undefined });
+          setLogoPreview(null);
+        }
+      } else {
+        alert(data.error || 'ลบไม่สำเร็จ');
+      }
+    } catch (error) {
+      console.error('Delete logo error:', error);
+      alert('เกิดข้อผิดพลาดในการลบ');
+    }
   };
 
   const isValid = formData.name && formData.email && formData.address && 
@@ -176,6 +273,97 @@ export function FreelancerStep() {
             onChange={(e) => handleChange('taxId', e.target.value)}
             placeholder="1809900958692"
           />
+        </div>
+
+        {/* Logo */}
+        <div className="pt-4 border-t">
+          <h4 className="font-medium mb-3">โลโก้</h4>
+          <div className="flex items-start gap-2">
+            <div className="flex-1 space-y-2">
+              <Input
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,image/svg+xml"
+                onChange={handleLogoUpload}
+                disabled={uploadingLogo}
+                className="cursor-pointer"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  setShowLogoGallery(!showLogoGallery);
+                  if (!showLogoGallery) loadLogoGallery();
+                }}
+              >
+                <Image className="h-4 w-4 mr-1" />
+                เลือกจาก Gallery
+              </Button>
+              {uploadingLogo && (
+                <p className="text-sm text-gray-500">กำลังอัปโหลด...</p>
+              )}
+            </div>
+            {logoPreview && (
+              <div className="flex-shrink-0 relative group">
+                <img 
+                  src={logoPreview} 
+                  alt="Logo" 
+                  className="w-20 h-20 object-contain border rounded p-1 bg-white"
+                />
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon"
+                  className="absolute -top-2 -right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={handleDeleteLogo}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+          </div>
+          {showLogoGallery && (
+            <div className="mt-3 p-3 border rounded bg-gray-50 max-h-48 overflow-y-auto">
+              <div className="grid grid-cols-4 gap-2">
+                {logoImages.map((logo) => (
+                  <div
+                    key={logo.filename}
+                    className="relative group"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleSelectLogo(logo)}
+                      className="w-full border rounded p-1 hover:border-blue-500 transition-colors bg-white"
+                    >
+                      <img 
+                        src={logo.url} 
+                        alt={logo.filename}
+                        className="w-full h-16 object-contain"
+                      />
+                    </button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute -top-1 -right-1 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteLogoFromGallery(logo.filename);
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+                {logoImages.length === 0 && (
+                  <p className="col-span-4 text-center text-sm text-gray-500 py-4">
+                    ยังไม่มีโลโก้
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Bank Info */}
