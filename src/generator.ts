@@ -62,7 +62,31 @@ async function injectDataIntoTemplate(
     data.taxType
   );
 
-  // Freelancer information
+  // Freelancer header block - generates proper HTML structure based on logo presence
+  const phoneHtml = config.phone ? ` | โทร: ${config.phone}` : "";
+  const freelancerContent = `
+                <h1>${config.name}</h1>
+                <p>
+                    ${config.title || ""} <br>
+                    ${config.address}<br>
+                    เลขประจำตัวผู้เสียภาษี: ${config.taxId}<br>
+                    อีเมล: ${config.email}${phoneHtml}
+                </p>`;
+  
+  if (logoDataUri) {
+    const freelancerHeaderWithLogo = `<div class="freelancer-info" style="display: flex; align-items: flex-start; gap: 15px;">
+                <img src="${logoDataUri}" alt="Logo" style="max-width: 80px; max-height: 80px; object-fit: contain;">
+                <div>${freelancerContent}
+                </div>
+            </div>`;
+    html = html.replace(/\{\{freelancer_header\}\}/g, freelancerHeaderWithLogo);
+  } else {
+    const freelancerHeaderNoLogo = `<div class="freelancer-info">${freelancerContent}
+            </div>`;
+    html = html.replace(/\{\{freelancer_header\}\}/g, freelancerHeaderNoLogo);
+  }
+
+  // Legacy freelancer placeholders (for backwards compatibility)
   html = html.replace(/\{\{freelancer\.name\}\}/g, config.name);
   html = html.replace(/\{\{freelancer\.title\}\}/g, config.title || "");
   html = html.replace(/\{\{freelancer\.email\}\}/g, config.email);
@@ -444,25 +468,8 @@ async function injectDataIntoTemplate(
     html = html.replace(/\{\{paymentQr\}\}/g, "");
   }
 
-  // Logo - when no logo, clean up the flex wrapper structure for cleaner layout
-  if (logoDataUri) {
-    html = html.replace(
-      /\{\{logo\}\}/g,
-      `<img src="${logoDataUri}" alt="Logo" style="max-width: 80px; max-height: 80px; object-fit: contain;">`
-    );
-  } else {
-    html = html.replace(/\{\{logo\}\}/g, "");
-    // Remove flex styling and inner wrapper div when no logo
-    html = html.replace(
-      /<div class="freelancer-info" style="display: flex; align-items: flex-start; gap: 15px;">\s*\n?\s*<div>\s*\n?\s*<h1>/g,
-      '<div class="freelancer-info">\n                <h1>'
-    );
-    // Remove the extra closing </div> from the wrapper
-    html = html.replace(
-      /<\/p>\s*\n?\s*<\/div>\s*\n?\s*<\/div>\s*\n?\s*<\/div>\s*\n?\s*<div class="invoice-title">/g,
-      '</p>\n            </div>\n            <div class="invoice-title">'
-    );
-  }
+  // Legacy {{logo}} placeholder cleanup (for any old custom templates)
+  html = html.replace(/\{\{logo\}\}/g, "");
 
   return html;
 }

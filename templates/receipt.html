@@ -359,18 +359,7 @@
     <div class="invoice-container">
         <!-- Header -->
         <div class="invoice-header">
-            <div class="freelancer-info" style="display: flex; align-items: flex-start; gap: 15px;">
-                {{logo}}
-                <div>
-                <h1>{{freelancer.name}}</h1>
-                <p>
-                    {{freelancer.title}} <br>
-                    {{freelancer.address}}<br>
-                    เลขประจำตัวผู้เสียภาษี: {{freelancer.taxId}}<br>
-                    อีเมล: {{freelancer.email}} {{freelancer.phone}}
-                </p>
-                </div>
-            </div>
+            {{freelancer_header}}
             <div class="invoice-title">
                 <h2>ใบเสร็จรับเงิน</h2>
                 <p>RECEIPT</p>
