@@ -124,6 +124,7 @@ async function migrateFreelancers() {
           phone: data.phone,
           address: data.address,
           tax_id: data.taxId,
+          logo: data.logo,
           signature: data.signature,
           bank_info: data.bankInfo,
         });

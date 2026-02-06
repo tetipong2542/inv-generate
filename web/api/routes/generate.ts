@@ -18,6 +18,7 @@ const DATA_DIR = process.env.RAILWAY_ENVIRONMENT ? '/data' : PROJECT_ROOT;
 const OUTPUT_DIR = path.join(DATA_DIR, 'output');
 const SIGNATURES_DIR = path.join(DATA_DIR, 'signatures');
 const PAYMENT_QR_DIR = path.join(DATA_DIR, 'payment-qr');
+const LOGOS_DIR = path.join(DATA_DIR, 'logos');
 
 const app = new Hono();
 
@@ -444,6 +445,21 @@ app.post('/', async (c) => {
         } else {
           console.warn(`Payment QR not found: ${fullQrPath}`);
           freelancerConfig.paymentQr = undefined;
+        }
+      }
+    }
+
+    // Resolve logo path if exists
+    if (freelancerConfig.logo) {
+      if (!path.isAbsolute(freelancerConfig.logo)) {
+        const filename = path.basename(freelancerConfig.logo);
+        const fullLogoPath = path.join(LOGOS_DIR, filename);
+        const logoFile = Bun.file(fullLogoPath);
+        if (await logoFile.exists()) {
+          freelancerConfig.logo = fullLogoPath;
+        } else {
+          console.warn(`Logo not found: ${fullLogoPath}`);
+          freelancerConfig.logo = undefined;
         }
       }
     }

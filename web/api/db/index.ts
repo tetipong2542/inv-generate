@@ -116,6 +116,11 @@ function initializeTables(db: Database) {
     db.exec(`ALTER TABLE freelancers ADD COLUMN payment_qr TEXT`);
   } catch (e) { /* column already exists */ }
 
+  // Migration: Add logo column to freelancers table
+  try {
+    db.exec(`ALTER TABLE freelancers ADD COLUMN logo TEXT`);
+  } catch (e) { /* column already exists */ }
+
   // Migration: Recreate services table if it has old schema (unit column should not exist)
   try {
     const cols = db.query(`PRAGMA table_info(services)`).all() as { name: string }[];
@@ -334,6 +339,7 @@ export interface FreelancerRow {
   phone: string | null;
   address: string;
   tax_id: string;
+  logo: string | null;
   signature: string | null;
   payment_qr: string | null;
   bank_info: string;
@@ -359,14 +365,15 @@ export async function createFreelancer(freelancer: {
   phone?: string;
   address: string;
   tax_id: string;
+  logo?: string;
   signature?: string;
   payment_qr?: string;
   bank_info: object;
 }): Promise<void> {
   const db = await getDatabase();
   db.query(`
-    INSERT INTO freelancers (id, name, title, email, phone, address, tax_id, signature, payment_qr, bank_info)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO freelancers (id, name, title, email, phone, address, tax_id, logo, signature, payment_qr, bank_info)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     freelancer.id,
     freelancer.name,
@@ -375,6 +382,7 @@ export async function createFreelancer(freelancer: {
     freelancer.phone || null,
     freelancer.address,
     freelancer.tax_id,
+    freelancer.logo || null,
     freelancer.signature || null,
     freelancer.payment_qr || null,
     JSON.stringify(freelancer.bank_info)
@@ -388,6 +396,7 @@ export async function updateFreelancer(id: string, freelancer: Partial<{
   phone: string;
   address: string;
   tax_id: string;
+  logo: string;
   signature: string;
   payment_qr: string;
   bank_info: object;
@@ -402,6 +411,7 @@ export async function updateFreelancer(id: string, freelancer: Partial<{
   if (freelancer.phone !== undefined) { sets.push('phone = ?'); values.push(freelancer.phone); }
   if (freelancer.address !== undefined) { sets.push('address = ?'); values.push(freelancer.address); }
   if (freelancer.tax_id !== undefined) { sets.push('tax_id = ?'); values.push(freelancer.tax_id); }
+  if (freelancer.logo !== undefined) { sets.push('logo = ?'); values.push(freelancer.logo); }
   if (freelancer.signature !== undefined) { sets.push('signature = ?'); values.push(freelancer.signature); }
   if (freelancer.payment_qr !== undefined) { sets.push('payment_qr = ?'); values.push(freelancer.payment_qr); }
   if (freelancer.bank_info !== undefined) { sets.push('bank_info = ?'); values.push(JSON.stringify(freelancer.bank_info)); }
@@ -565,6 +575,7 @@ export function freelancerRowToApi(row: FreelancerRow): any {
     phone: row.phone,
     address: row.address,
     taxId: row.tax_id,
+    logo: row.logo,
     signature: row.signature,
     paymentQr: row.payment_qr,
     bankInfo: JSON.parse(row.bank_info),

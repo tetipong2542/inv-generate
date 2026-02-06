@@ -33,6 +33,7 @@ export interface FreelancerConfig {
   phone?: string;
   address: string;
   taxId: string;
+  logo?: string;
   signature?: string;
   paymentQr?: string;
   bankInfo: BankInfo;

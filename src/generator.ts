@@ -50,6 +50,7 @@ async function injectDataIntoTemplate(
   config: FreelancerConfig,
   signatureDataUri: string | null,
   paymentQrDataUri: string | null,
+  logoDataUri: string | null,
   documentType: "invoice" | "quotation" | "receipt"
 ): Promise<string> {
   let html = template;
@@ -443,6 +444,16 @@ async function injectDataIntoTemplate(
     html = html.replace(/\{\{paymentQr\}\}/g, "");
   }
 
+  // Logo
+  if (logoDataUri) {
+    html = html.replace(
+      /\{\{logo\}\}/g,
+      `<img src="${logoDataUri}" alt="Logo" style="max-width: 80px; max-height: 80px; object-fit: contain;">`
+    );
+  } else {
+    html = html.replace(/\{\{logo\}\}/g, "");
+  }
+
   return html;
 }
 
@@ -504,7 +515,11 @@ export async function generatePDF(
     ? await loadImageAsBase64(config.paymentQr, "payment QR code")
     : null;
 
-  const html = await injectDataIntoTemplate(template, data, customer, config, signatureDataUri, paymentQrDataUri, type);
+  const logoDataUri = (config as any).logo
+    ? await loadImageAsBase64((config as any).logo, "logo")
+    : null;
+
+  const html = await injectDataIntoTemplate(template, data, customer, config, signatureDataUri, paymentQrDataUri, logoDataUri, type);
 
   // Launch Puppeteer
   const browser = await puppeteer.launch({
@@ -611,6 +626,7 @@ export async function generatePDF(
         config,
         signatureDataUri,
         paymentQrDataUri,
+        logoDataUri,
         type
       );
       
