@@ -596,7 +596,7 @@ app.post('/:id/create-linked', async (c) => {
         sourceDocumentNumber: sourceDoc.documentNumber,
         partialPayment: sourceDoc.partialPayment,
         installment: sourceDoc.installment,
-        ...(targetType === 'invoice' ? { dueDate: '' } : {}),
+        ...(targetType === 'invoice' ? { dueDate: sourceDoc.validUntil || '' } : {}),
         ...(targetType === 'receipt' ? {
           paymentDate: new Date().toISOString().split('T')[0],
           paymentMethod: 'โอนเงิน',

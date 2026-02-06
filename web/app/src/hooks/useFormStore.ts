@@ -332,23 +332,22 @@ export const useFormStore = create<FormStore>((set, get) => ({
   },
 
   loadFromLinkedDocument: (sourceDoc, targetType, linkedData, customer) => {
-    // Calculate default dates
     const today = new Date().toISOString().split('T')[0];
     const thirtyDaysLater = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-    // Get profileId from linkedData or sourceDoc
     const profileId = (linkedData as any).profileId || (sourceDoc as any).profileId || null;
 
-    // Get discount and partialPayment from source
     const sourceDiscount = (linkedData as any).discount || (sourceDoc as any).discount;
     const sourcePartialPayment = (linkedData as any).partialPayment || (sourceDoc as any).partialPayment;
+    
+    const sourceValidUntil = (sourceDoc as any).validUntil;
 
     set({
-      currentStep: 2, // Go to Document step (to set due date for INV or review for REC)
+      currentStep: 2,
       documentType: targetType,
       customer: customer,
       document: {
-        documentNumber: 'auto', // Will auto-generate
+        documentNumber: 'auto',
         issueDate: today,
         items: linkedData.items || sourceDoc.items || [],
         taxRate: linkedData.taxRate ?? sourceDoc.taxRate ?? 0.03,
@@ -356,14 +355,11 @@ export const useFormStore = create<FormStore>((set, get) => ({
         taxLabel: linkedData.taxLabel || sourceDoc.taxLabel || 'หักภาษี ณ ที่จ่าย 3%',
         paymentTerms: linkedData.paymentTerms || sourceDoc.paymentTerms || [],
         notes: linkedData.notes || sourceDoc.notes || '',
-        // Copy discount and partialPayment from source
         ...(sourceDiscount ? { discount: sourceDiscount } : {}),
         ...(sourcePartialPayment ? { partialPayment: sourcePartialPayment } : {}),
-        // Type-specific fields for Invoice
         ...(targetType === 'invoice' ? {
-          dueDate: thirtyDaysLater, // Default 30 days
+          dueDate: (linkedData as any).dueDate || sourceValidUntil || thirtyDaysLater,
         } : {}),
-        // Type-specific fields for Receipt
         ...(targetType === 'receipt' ? {
           paymentDate: today,
           paymentMethod: linkedData.paymentMethod || 'โอนเงิน',
