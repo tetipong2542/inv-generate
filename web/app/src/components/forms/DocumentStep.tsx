@@ -251,7 +251,7 @@ export function DocumentStep() {
   
   // Validation
   const hasItems = items.length > 0 && items.every(item => 
-    item.description && item.quantity > 0 && item.unitPrice > 0
+    item.description && item.quantity > 0 && item.unitPrice >= 0
   );
   const hasProfile = selectedProfileId !== null;
   const hasValidUntil = documentType !== 'quotation' || !!(document as any).validUntil;
