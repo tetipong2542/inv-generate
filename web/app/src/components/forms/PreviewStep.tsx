@@ -171,9 +171,9 @@ export function PreviewStep() {
 
   const handleGenerate = async () => {
     let documentDataWithBase = { ...document };
-    if (document.partialPayment?.enabled && document.partialPayment.type === 'percent') {
-      const baseAmount = installment.isInstallment && installment.remainingAmount > 0 
-        ? installment.remainingAmount 
+    if (document.partialPayment?.enabled) {
+      const baseAmount = installment.isInstallment && installment.remainingAmount > 0
+        ? installment.remainingAmount
         : breakdown.total;
       documentDataWithBase = {
         ...document,

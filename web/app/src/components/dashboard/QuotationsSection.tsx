@@ -413,25 +413,52 @@ export function QuotationsSection() {
     const chainResults = Array.from(groups.entries()).map(([chainId, docs]) => {
       const sortedDocs = sortByType(docs);
       const qt = docs.find(d => d.type === 'quotation');
+      const inv = docs.find(d => d.type === 'invoice');
       const recs = docs.filter(d => d.type === 'receipt');
-      
+
       const thisChainPaid = recs.reduce((sum, rec) => sum + (rec.paidAmount ?? calcTotal(rec)), 0);
-      
-      const primaryDoc = qt || docs[0];
-      const installmentData = primaryDoc?.installment;
-      
+
+      const primaryDoc = qt || inv || docs[0];
+
+      const installmentSource = docs.find(d => d.installment?.isInstallment) || primaryDoc;
+      const installmentData = installmentSource?.installment;
+
+      const partialPaymentDoc = docs.find(d => d.partialPayment?.enabled) || primaryDoc;
+      const partialPaymentMeta = partialPaymentDoc?.partialPayment;
+      const partialPaymentBase = partialPaymentMeta?.baseAmount;
+      const hasPartialPayment = !!partialPaymentMeta?.enabled;
+
       const rpMatch = primaryDoc?.documentNumber?.match(/-RP(\d+)$/);
       const rpNumber = rpMatch ? parseInt(rpMatch[1], 10) : 0;
-      
-      const masterTotal = installmentData?.totalContractAmount ?? (qt ? calcTotal(qt) : thisChainPaid);
+
+      let masterTotal: number | undefined =
+        installmentData?.totalContractAmount ??
+        partialPaymentBase ??
+        (qt ? calcTotal(qt) : undefined);
+
+      if (masterTotal === undefined && inv) {
+        const invTotal = calcTotal(inv);
+        masterTotal = Math.max(invTotal, thisChainPaid);
+      }
+      if (masterTotal === undefined) {
+        masterTotal = thisChainPaid;
+      }
+
       const previouslyPaid = installmentData?.paidToDate ?? 0;
       const cumulativePaid = previouslyPaid + thisChainPaid;
-      
-      const isInstallment = !!installmentData?.isInstallment || rpNumber > 0;
+
+      const isInstallment = !!installmentData?.isInstallment || rpNumber > 0 || hasPartialPayment;
       const installmentNumber = installmentData?.installmentNumber ?? rpNumber ?? 1;
-      const isPaymentComplete = cumulativePaid >= masterTotal;
+
+      const hasReliableTotal =
+        installmentData?.totalContractAmount !== undefined ||
+        partialPaymentBase !== undefined ||
+        qt !== undefined;
+      const isPaymentComplete =
+        hasPartialPayment && !hasReliableTotal ? false : cumulativePaid >= masterTotal;
+
       const parentChainId = installmentData?.parentChainId || null;
-      
+
       return {
         chainId,
         documents: sortedDocs,
