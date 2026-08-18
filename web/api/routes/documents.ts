@@ -569,13 +569,19 @@ app.post('/:id/create-linked', async (c) => {
       
       const partialPayment = sourceDoc.partialPayment;
       const installmentData = sourceDoc.installment;
-      const baseAmount = installmentData?.remainingAmount || total;
+      const contractTotal = installmentData?.totalContractAmount || total;
+      const remaining = installmentData?.remainingAmount || total;
       let actualPaidAmount = total;
       if (partialPayment?.enabled) {
         if (partialPayment.type === 'percent') {
-          actualPaidAmount = baseAmount * (partialPayment.value / 100);
+          if (partialPayment.value === 100) {
+            // 100% = pay all remaining
+            actualPaidAmount = remaining;
+          } else {
+            actualPaidAmount = Math.min(contractTotal * (partialPayment.value / 100), remaining);
+          }
         } else if (partialPayment.type === 'fixed') {
-          actualPaidAmount = partialPayment.value;
+          actualPaidAmount = Math.min(partialPayment.value, remaining);
         }
       }
 

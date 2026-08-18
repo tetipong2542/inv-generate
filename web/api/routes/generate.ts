@@ -681,16 +681,22 @@ app.post('/', async (c) => {
         const paymentType = finalDocumentData.partialPayment?.type || 'fixed';
         
         const docTotal = finalDocumentData.taxBreakdown?.total || taxBreakdown?.total || 0;
-        const baseAmount = finalDocumentData.partialPayment?.baseAmount || installment?.remainingAmount || docTotal;
+        const contractTotal = installment?.totalContractAmount || finalDocumentData.partialPayment?.baseAmount || docTotal;
+        const remaining = installment?.remainingAmount || contractTotal;
         
         let paymentAmount: number;
         if (paymentType === 'percent') {
-          paymentAmount = paymentValue === 100 ? baseAmount : baseAmount * paymentValue / 100;
+          if (paymentValue === 100) {
+            // 100% = pay all remaining
+            paymentAmount = remaining;
+          } else {
+            paymentAmount = Math.min(contractTotal * paymentValue / 100, remaining);
+          }
         } else {
-          paymentAmount = paymentValue || docTotal;
+          paymentAmount = Math.min(paymentValue || docTotal, remaining);
         }
         
-        const remainingBeforeThis = installment?.remainingAmount || baseAmount;
+        const remainingBeforeThis = remaining;
         const remainingAfterThis = Math.round((remainingBeforeThis - paymentAmount) * 100) / 100;
         
         if (remainingAfterThis <= 0 || paymentValue === 100) {

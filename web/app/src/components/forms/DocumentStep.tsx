@@ -921,22 +921,45 @@ export function DocumentStep() {
             </div>
 
             {document.partialPayment?.enabled && document.partialPayment.value > 0 && (() => {
-              const baseAmount = installment.isInstallment && installment.remainingAmount > 0 
-                ? installment.remainingAmount 
-                : breakdown.total;
-              const paymentAmount = document.partialPayment.type === 'percent'
-                ? baseAmount * document.partialPayment.value / 100
-                : document.partialPayment.value;
+              const isInst = installment.isInstallment && installment.totalContractAmount > 0;
+              const contractTotal = installment.totalContractAmount || breakdown.total;
+              const remaining = installment.remainingAmount || breakdown.total;
+
+              let paymentAmount: number;
+              let wasCapped = false;
+              if (document.partialPayment.type === 'percent') {
+                if (isInst && document.partialPayment.value === 100) {
+                  // 100% = pay all remaining
+                  paymentAmount = remaining;
+                } else {
+                  const base = isInst ? contractTotal : breakdown.total;
+                  const calculated = base * document.partialPayment.value / 100;
+                  wasCapped = isInst && calculated > remaining;
+                  paymentAmount = isInst ? Math.min(calculated, remaining) : calculated;
+                }
+              } else {
+                paymentAmount = document.partialPayment.value;
+                wasCapped = isInst && paymentAmount > remaining;
+                paymentAmount = isInst ? Math.min(paymentAmount, remaining) : paymentAmount;
+              }
+              paymentAmount = Math.round(paymentAmount * 100) / 100;
               return (
+                <>
                 <div className="flex justify-between text-sm font-medium text-blue-600 bg-blue-50 p-2 rounded -mx-2">
                   <span>
                     งวดนี้ชำระ {document.partialPayment.type === 'percent' ? `${document.partialPayment.value}%` : ''}
-                    {installment.isInstallment && document.partialPayment.type === 'percent' && (
-                      <span className="text-xs text-blue-400 ml-1">(ของ ฿{formatNumber(baseAmount)} คงเหลือ)</span>
+                    {isInst && document.partialPayment.type === 'percent' && (
+                      <span className="text-xs text-blue-400 ml-1">(ของ ฿{formatNumber(contractTotal)} ยอดสัญญา)</span>
                     )}
                   </span>
                   <span>{formatNumber(paymentAmount)} บาท</span>
                 </div>
+                {wasCapped && (
+                  <div className="text-xs text-orange-500 bg-orange-50 p-1.5 rounded -mx-2 mt-1">
+                    ⚠️ ปรับยอดเป็น ฿{formatNumber(remaining)} (คงเหลือจริง) เนื่องจากเกินยอดคงเหลือ
+                  </div>
+                )}
+                </>
               );
             })()}
           </div>
