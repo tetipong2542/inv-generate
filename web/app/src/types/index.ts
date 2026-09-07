@@ -76,6 +76,7 @@ export interface BaseDocument {
   paymentTerms?: string[];
   discount?: Discount;
   partialPayment?: PartialPayment;
+  hideSummaryBox?: boolean;
 }
 
 export interface InvoiceData extends BaseDocument {

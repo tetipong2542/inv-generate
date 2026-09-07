@@ -747,6 +747,36 @@ export function DocumentStep() {
                 </p>
               )}
             </div>
+
+            {/* Hide Summary Box in PDF - only for quotation */}
+            {documentType === 'quotation' && (
+              <div className="space-y-2 sm:col-span-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">ซ่อนสรุปยอดใน PDF</Label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateDocument({
+                        hideSummaryBox: !document.hideSummaryBox
+                      });
+                    }}
+                    className={cn(
+                      "text-xs px-2 py-0.5 rounded-full transition-all",
+                      document.hideSummaryBox
+                        ? "bg-orange-100 text-orange-700"
+                        : "bg-gray-100 text-gray-500"
+                    )}
+                  >
+                    {document.hideSummaryBox ? '✓ ซ่อน' : 'แสดง'}
+                  </button>
+                </div>
+                {document.hideSummaryBox && (
+                  <p className="text-xs text-orange-600">
+                    จะไม่แสดงกรอบสรุปยอด (รวมเป็นเงิน, ภาษี, ยอดชำระ) ใน PDF
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

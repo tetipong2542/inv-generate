@@ -441,6 +441,11 @@ async function injectDataIntoTemplate(
     html = html.replace(/\{\{totalInWords\}\}/g, bahtText(amountForThaiText));
   }
 
+  // Hide summary box in PDF (optional, mainly for quotations)
+  if ((data as any).hideSummaryBox) {
+    html = html.replace('</head>', '<style>.summary-container { display: none !important; }</style></head>');
+  }
+
   // Notes - convert newlines and <br> to HTML line breaks
   const formattedNotes = (data.notes || "")
     .replace(/\r\n/g, "\n") // Normalize Windows line endings
