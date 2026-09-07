@@ -268,7 +268,7 @@ async function injectDataIntoTemplate(
     const installmentData = (data as any).installment;
     let amountForThaiText = finalTotal;
     if (partialPayment?.enabled && partialPayment.value > 0) {
-      const baseAmount = partialPayment.baseAmount || installmentData?.remainingAmount || finalTotal;
+      const baseAmount = partialPayment.baseAmount ?? installmentData?.totalContractAmount ?? finalTotal;
       const paymentAmount = partialPayment.type === 'percent' 
         ? baseAmount * partialPayment.value / 100 
         : partialPayment.value;
@@ -374,7 +374,7 @@ async function injectDataIntoTemplate(
     const installmentData = (data as any).installment;
     let amountForThaiText = finalTotal;
     if (partialPayment?.enabled && partialPayment.value > 0) {
-      const baseAmount = partialPayment.baseAmount || installmentData?.remainingAmount || finalTotal;
+      const baseAmount = partialPayment.baseAmount ?? installmentData?.totalContractAmount ?? finalTotal;
       const paymentAmount = partialPayment.type === 'percent' 
         ? baseAmount * partialPayment.value / 100 
         : partialPayment.value;
