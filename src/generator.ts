@@ -258,9 +258,17 @@ async function injectDataIntoTemplate(
       `);
       html = html.replace(/\{\{discountAmount\}\}/g, formatNumber(discountAmount));
       finalTotal = finalTotal - discountAmount;
+      // Show net total after discount
+      html = html.replace(/\{\{netTotalRow\}\}/g, `
+        <div class="summary-row" style="font-weight: bold; border-top: 1px solid #ddd; padding-top: 6px; margin-top: 4px;">
+          <span>ยอดชำระสุทธิ</span>
+          <span class="amount">${formatNumber(finalTotal)}</span>
+        </div>
+      `);
     } else {
       html = html.replace(/\{\{discountRow\}\}/g, '');
       html = html.replace(/\{\{discountAmount\}\}/g, '');
+      html = html.replace(/\{\{netTotalRow\}\}/g, '');
     }
     
     // Partial payment section (optional)
@@ -364,9 +372,17 @@ async function injectDataIntoTemplate(
       `);
       html = html.replace(/\{\{discountAmount\}\}/g, formatNumber(discountAmount));
       finalTotal = finalTotal - discountAmount;
+      // Show net total after discount
+      html = html.replace(/\{\{netTotalRow\}\}/g, `
+        <div class="summary-row" style="font-weight: bold; border-top: 1px solid #ddd; padding-top: 6px; margin-top: 4px;">
+          <span>ยอดชำระสุทธิ</span>
+          <span class="amount">${formatNumber(finalTotal)}</span>
+        </div>
+      `);
     } else {
       html = html.replace(/\{\{discountRow\}\}/g, '');
       html = html.replace(/\{\{discountAmount\}\}/g, '');
+      html = html.replace(/\{\{netTotalRow\}\}/g, '');
     }
     
     // Partial payment (legacy mode)
